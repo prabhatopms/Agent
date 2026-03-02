@@ -7,8 +7,8 @@ import {
   Bot,
   GitBranch,
   Package,
-  Plug,
-  BookOpen,
+  Network,
+  Layers,
   Database,
   List,
   HardDrive,
@@ -16,12 +16,12 @@ import {
   Pencil,
   Trash2,
   MoveRight,
-  FileText,
-  ClipboardCheck,
-  Users,
+  FileCode2,
+  CircleDot,
+  Activity,
+  Braces,
   LayoutGrid,
-  Tag,
-  AppWindow,
+  Table2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -40,27 +40,38 @@ import {
 
 // ─── Item type icon map ────────────────────────────────────────────────────────
 
+// Entity diamond SVG matching Figma resource list icon
+function DiamondIcon({ size = 14, color = "#526069" }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
+      <path d="M7 1.5L12 7L7 12.5L2 7L7 1.5Z" stroke={color} strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M7 4L9.5 7L7 10L4.5 7L7 4Z" fill={color} />
+    </svg>
+  );
+}
+
 function ItemIcon({ itemType, section }: { itemType?: string; section: string }) {
   switch (itemType ?? section) {
-    // Original types
-    case "agent":      return <Bot className="w-3.5 h-3.5 shrink-0 text-violet-500" />;
-    case "process":    return <GitBranch className="w-3.5 h-3.5 shrink-0 text-blue-500" />;
-    case "asset":      return <Package className="w-3.5 h-3.5 shrink-0 text-amber-500" />;
-    case "connection": return <Plug className="w-3.5 h-3.5 shrink-0 text-emerald-500" />;
-    case "context":    return <BookOpen className="w-3.5 h-3.5 shrink-0 text-cyan-500" />;
-    case "memory":     return <Database className="w-3.5 h-3.5 shrink-0 text-rose-500" />;
-    case "queue":      return <List className="w-3.5 h-3.5 shrink-0 text-orange-500" />;
-    case "storage":    return <HardDrive className="w-3.5 h-3.5 shrink-0 text-zinc-500" />;
-    // New solution tree types
-    case "definition": return <FileText className="w-3.5 h-3.5 shrink-0 text-blue-400" />;
-    case "evaluation": return <ClipboardCheck className="w-3.5 h-3.5 shrink-0 text-violet-400" />;
-    case "evaluators": return <Users className="w-3.5 h-3.5 shrink-0 text-slate-400" />;
-    case "bpmn":       return <GitBranch className="w-3.5 h-3.5 shrink-0 text-blue-400" />;
+    case "agent":      return <Bot className="w-3.5 h-3.5 shrink-0" style={{ color: "#526069" }} />;
+    case "process":    return <GitBranch className="w-3.5 h-3.5 shrink-0" style={{ color: "#526069" }} />;
+    case "asset":      return <Package className="w-3.5 h-3.5 shrink-0" style={{ color: "#526069" }} />;
+    case "connection": return <Network className="w-3.5 h-3.5 shrink-0" style={{ color: "#526069" }} />;
+    case "context":    return <Layers className="w-3.5 h-3.5 shrink-0" style={{ color: "#526069" }} />;
+    case "memory":     return <Database className="w-3.5 h-3.5 shrink-0" style={{ color: "#526069" }} />;
+    case "queue":      return <List className="w-3.5 h-3.5 shrink-0" style={{ color: "#526069" }} />;
+    case "storage":    return <HardDrive className="w-3.5 h-3.5 shrink-0" style={{ color: "#526069" }} />;
+    // Solution tree types — matching Figma icons
+    case "definition": return <CircleDot className="w-3.5 h-3.5 shrink-0" style={{ color: "#0067DF" }} />;
+    case "evaluation": return <Activity className="w-3.5 h-3.5 shrink-0" style={{ color: "#526069" }} />;
+    case "evaluators": return <Braces className="w-3.5 h-3.5 shrink-0" style={{ color: "#526069" }} />;
+    case "bpmn":       return <FileCode2 className="w-3.5 h-3.5 shrink-0" style={{ color: "#526069" }} />;
     // Resource section types
-    case "apps":       return <AppWindow className="w-3.5 h-3.5 shrink-0 text-slate-400" />;
-    case "entities":   return <Tag className="w-3.5 h-3.5 shrink-0 text-indigo-400" />;
-    case "entity":     return <Tag className="w-3.5 h-3.5 shrink-0 text-indigo-300" />;
-    default:           return <FileText className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />;
+    case "apps":       return <LayoutGrid className="w-3.5 h-3.5 shrink-0" style={{ color: "#526069" }} />;
+    case "assets":
+    case "asset-group":return <Table2 className="w-3.5 h-3.5 shrink-0" style={{ color: "#526069" }} />;
+    case "entities":   return <DiamondIcon color="#526069" />;
+    case "entity":     return <CircleDot className="w-3.5 h-3.5 shrink-0" style={{ color: "#526069" }} />;
+    default:           return <FileCode2 className="w-3.5 h-3.5 shrink-0" style={{ color: "#526069" }} />;
   }
 }
 
@@ -74,6 +85,7 @@ export function TreeItem({ nodeId, allNodes, depth }: TreeItemProps) {
   const {
     solution,
     selectedAgentId,
+    selectedExplorerNodeId,
     toggleNodeExpanded,
     deleteNode,
     openRenameDialog,
@@ -89,8 +101,10 @@ export function TreeItem({ nodeId, allNodes, depth }: TreeItemProps) {
     ? allNodes.filter((n) => n.parentId === nodeId)
     : [];
 
-  // Highlight if this node represents a selected agent (works for both folder and item agent types)
-  const isSelected = !!node.agentId && node.agentId === selectedAgentId;
+  // Highlight if this node represents a selected agent OR is the active explorer item
+  const isSelected =
+    (!!node.agentId && node.agentId === selectedAgentId) ||
+    node.id === selectedExplorerNodeId;
 
   const handleClick = () => {
     // If node has an agentId, select the agent regardless of folder/item type
@@ -112,11 +126,14 @@ export function TreeItem({ nodeId, allNodes, depth }: TreeItemProps) {
     <div>
       <div
         className={cn(
-          "flex items-center gap-1.5 pr-1 py-[3px] cursor-pointer group rounded-sm mx-1",
-          "hover:bg-muted/60 transition-colors",
-          isSelected && "bg-blue-50 dark:bg-blue-950/50"
+          "flex items-center gap-1.5 pr-1 py-[3px] cursor-pointer group",
+          "hover:bg-[#F4F5F7] transition-colors",
         )}
-        style={{ paddingLeft: `${indentPx}px` }}
+        style={{
+          paddingLeft: `${indentPx}px`,
+          background: isSelected ? "#E9F1FA" : undefined,
+          borderLeft: isSelected ? "2px solid #0067DF" : "2px solid transparent",
+        }}
         onClick={handleClick}
       >
         {/* Expand arrow for folders */}
@@ -144,12 +161,17 @@ export function TreeItem({ nodeId, allNodes, depth }: TreeItemProps) {
 
         {/* Label */}
         <span
-          className={cn(
-            "text-[12px] flex-1 truncate leading-snug",
-            isSelected
-              ? "font-medium text-blue-700 dark:text-blue-300"
-              : "text-foreground"
-          )}
+          style={{
+            fontFamily: "'Noto Sans', system-ui, sans-serif",
+            fontSize: 13,
+            lineHeight: "20px",
+            flex: 1,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            fontWeight: isSelected ? 600 : 400,
+            color: isSelected ? "#0067DF" : "#273139",
+          }}
         >
           {node.label}
         </span>

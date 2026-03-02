@@ -2,15 +2,7 @@
 
 import { memo } from "react";
 import { Handle, Position, type NodeProps } from "reactflow";
-import {
-  Bot,
-  AlertTriangle,
-  Plus,
-  Settings,
-  Link,
-  MoreVertical,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+import { AlertTriangle, Plus } from "lucide-react";
 import { useSolutionStore } from "@/state/solutionStore";
 
 interface AgentNodeData {
@@ -18,12 +10,12 @@ interface AgentNodeData {
   agentId: string;
   status: "active" | "draft" | "error" | "running";
   hasWarning?: boolean;
+  healthPct?: number;
   escalationCount?: number;
   contextCount?: number;
   toolCount?: number;
 }
 
-// Connector positions match Figma (% of 288px card width): 21%, 50%, 78%
 const CONNECTORS = [
   { label: "Escalations", pct: 21 },
   { label: "Context", pct: 50 },
@@ -35,145 +27,183 @@ export const AgentNode = memo(function AgentNode({
   selected,
   id,
 }: NodeProps<AgentNodeData>) {
-  const { solution, selectCanvasNode } = useSolutionStore();
-  const agent = solution.agents.find((a) => a.id === data.agentId);
-  const hasMissingModel = !agent?.model;
+  const { selectCanvasNode } = useSolutionStore();
+
+  const borderColor = selected ? "#0067DF" : "#CFD8DD";
+  const shadow = selected
+    ? "0 0 0 2px #0067DF33, 0 2px 8px #0000001A"
+    : "0 1px 4px #0000001A";
 
   return (
     <div
-      className="relative cursor-pointer group/node"
-      style={{ width: 288 }}
+      style={{ width: 288, cursor: "pointer" }}
+      className="group/node"
       onClick={() => selectCanvasNode(id)}
     >
-      {/* Top connection handle */}
       <Handle
         type="target"
         position={Position.Top}
-        className="!w-2.5 !h-2.5 !bg-muted-foreground/30 !border-2 !border-background"
+        style={{ opacity: 0 }}
       />
 
-      {/* ── Card ────────────────────────────────────────────────── */}
+      {/* ── Card ─────────────────────────────────────────────────── */}
       <div
-        className={cn(
-          "bg-background border rounded-xl shadow-md transition-all duration-150",
-          selected
-            ? "border-violet-500 shadow-lg shadow-violet-500/15"
-            : "border-border hover:border-violet-300 hover:shadow-lg"
-        )}
+        style={{
+          display: "flex",
+          height: 96,
+          borderRadius: 8,
+          border: `1px solid ${borderColor}`,
+          boxShadow: shadow,
+          background: "#FFFFFF",
+          overflow: "hidden",
+        }}
       >
+        {/* Left: icon panel */}
         <div
-          className={cn(
-            "flex items-start gap-2.5 px-3 pt-3 pb-3 rounded-xl",
-            selected ? "bg-violet-50/60 dark:bg-violet-950/20" : "bg-transparent"
-          )}
+          style={{
+            width: 72,
+            background: "#EDE9FF",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
         >
-          {/* Robot icon */}
+          {/* Bot SVG icon matching Figma */}
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <rect x="4" y="12" width="24" height="14" rx="4" stroke="#273139" strokeWidth="1.5" />
+            <circle cx="12" cy="19" r="2" fill="#273139" />
+            <circle cx="20" cy="19" r="2" fill="#273139" />
+            <path d="M12 23h8" stroke="#273139" strokeWidth="1.5" strokeLinecap="round" />
+            <path d="M16 12V8" stroke="#273139" strokeWidth="1.5" strokeLinecap="round" />
+            <circle cx="16" cy="7" r="2" stroke="#273139" strokeWidth="1.5" />
+            <path d="M4 18h-2M30 18h-2" stroke="#273139" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        </div>
+
+        {/* Right: content */}
+        <div
+          style={{
+            flex: 1,
+            padding: "12px 12px 12px 14px",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            position: "relative",
+            minWidth: 0,
+          }}
+        >
+          {/* Warning triangle — top-right */}
+          {data.hasWarning && (
+            <div style={{ position: "absolute", top: 10, right: 10 }}>
+              <AlertTriangle style={{ width: 16, height: 16, color: "#FFB40E" }} />
+            </div>
+          )}
+
           <div
-            className={cn(
-              "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5",
-              selected ? "bg-violet-600" : "bg-violet-100 dark:bg-violet-900/60"
-            )}
+            style={{
+              fontFamily: "'Noto Sans', system-ui, sans-serif",
+              fontSize: 14,
+              fontWeight: 600,
+              lineHeight: "20px",
+              color: "#182027",
+              marginBottom: 2,
+              paddingRight: 20,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
           >
-            <Bot
-              className={cn(
-                selected ? "text-white" : "text-violet-600 dark:text-violet-400"
-              )}
-              style={{ width: 18, height: 18 }}
-            />
+            {data.label}
           </div>
 
-          {/* Name + subtitle */}
-          <div className="flex-1 min-w-0">
-            <div className="text-[13px] font-semibold text-foreground leading-snug truncate">
-              {data.label}
-            </div>
-            <div className="text-[11px] text-muted-foreground mt-0.5">Agent</div>
+          <div
+            style={{
+              fontFamily: "'Noto Sans', system-ui, sans-serif",
+              fontSize: 13,
+              color: "#526069",
+              lineHeight: "20px",
+              marginBottom: 4,
+            }}
+          >
+            Agent
           </div>
 
-          {/* Right-side indicators */}
-          <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
-            {(data.escalationCount ?? 0) > 0 && (
-              <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
-                <span className="text-[9px] font-bold text-white leading-none">
-                  {data.escalationCount}
-                </span>
-              </div>
-            )}
-            {(data.hasWarning || hasMissingModel) && (
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            )}
-            {/* Hover actions */}
-            <div className="opacity-0 group-hover/node:opacity-100 flex items-center gap-0.5 transition-opacity">
-              <button
-                className="w-5 h-5 flex items-center justify-center rounded hover:bg-muted"
-                onClick={(e) => e.stopPropagation()}
-                title="Settings"
-              >
-                <Settings className="w-3 h-3 text-muted-foreground" />
-              </button>
-              <button
-                className="w-5 h-5 flex items-center justify-center rounded hover:bg-muted"
-                onClick={(e) => e.stopPropagation()}
-                title="Copy link"
-              >
-                <Link className="w-3 h-3 text-muted-foreground" />
-              </button>
-              <button
-                className="w-5 h-5 flex items-center justify-center rounded hover:bg-muted"
-                onClick={(e) => e.stopPropagation()}
-                title="More actions"
-              >
-                <MoreVertical className="w-3 h-3 text-muted-foreground" />
-              </button>
+          {/* Health % */}
+          {data.healthPct !== undefined && (
+            <div
+              style={{
+                fontFamily: "'Noto Sans', system-ui, sans-serif",
+                fontSize: 13,
+                fontWeight: 600,
+                color: "#E5173B",
+                lineHeight: "16px",
+              }}
+            >
+              {data.healthPct}%
             </div>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* ── Connectors below card ───────────────────────────────── */}
-      {/* Each: vertical line from card bottom + label + circle add button */}
-      <div className="relative" style={{ height: 96 }}>
+      {/* ── Connectors below card ─────────────────────────────────── */}
+      <div style={{ position: "relative", height: 96 }}>
         {CONNECTORS.map((c) => (
           <div
             key={c.label}
-            className="absolute top-0 flex flex-col items-center"
-            style={{ left: `${c.pct}%`, transform: "translateX(-50%)" }}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: `${c.pct}%`,
+              transform: "translateX(-50%)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+            }}
           >
             {/* Vertical line */}
-            <div
-              className="w-px bg-border/70"
-              style={{ height: 96 }}
-            />
-            {/* Label — floated near top of line */}
+            <div style={{ width: 1, height: 96, background: "#CFD8DD" }} />
+            {/* Label */}
             <span
-              className="absolute text-[10px] text-muted-foreground whitespace-nowrap"
-              style={{ top: 14 }}
+              style={{
+                position: "absolute",
+                top: 12,
+                fontFamily: "'Noto Sans', system-ui, sans-serif",
+                fontSize: 11,
+                color: "#526069",
+                whiteSpace: "nowrap",
+              }}
             >
               {c.label}
             </span>
-            {/* Circle add button */}
+            {/* Circle button */}
             <button
-              className={cn(
-                "absolute w-8 h-8 rounded-full border border-border bg-background",
-                "flex items-center justify-center",
-                "hover:border-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-colors",
-                "opacity-50 group-hover/node:opacity-100"
-              )}
-              style={{ top: 54 }}
+              style={{
+                position: "absolute",
+                top: 52,
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                border: "1px solid #CFD8DD",
+                background: "#FFFFFF",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+              }}
               onClick={(e) => e.stopPropagation()}
               title={`Add ${c.label}`}
             >
-              <Plus className="w-3.5 h-3.5 text-muted-foreground" />
+              <Plus style={{ width: 14, height: 14, color: "#526069" }} />
             </button>
           </div>
         ))}
       </div>
 
-      {/* Bottom source handle at end of connector section */}
       <Handle
         type="source"
         position={Position.Bottom}
-        className="!w-2.5 !h-2.5 !bg-muted-foreground/30 !border-2 !border-background"
+        style={{ opacity: 0 }}
       />
     </div>
   );

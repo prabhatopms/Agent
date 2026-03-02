@@ -13,11 +13,13 @@ import {
 import { useSolutionStore, selectSelectedAgent } from "@/state/solutionStore";
 import { INSPECTOR_SECTIONS } from "@/config/inspectorSections";
 import { SectionRenderer } from "./SectionRenderer";
+import { NewContextPanel } from "./NewContextPanel";
 import { cn } from "@/lib/utils";
 
 export function InspectorPanel() {
   const {
     selectedAgentId,
+    selectedCanvasNodeType,
     isDirty,
     validationErrors,
     applyAgentChanges,
@@ -26,6 +28,10 @@ export function InspectorPanel() {
 
   const agent = useSolutionStore(selectSelectedAgent);
   const hasErrors = Object.keys(validationErrors).length > 0;
+
+  if (selectedCanvasNodeType === "contextNode") {
+    return <NewContextPanel />;
+  }
 
   if (!selectedAgentId || !agent) {
     return <EmptyInspector />;

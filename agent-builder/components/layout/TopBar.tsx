@@ -5,7 +5,7 @@ import {
   ClipboardCheck,
   Globe,
   ChevronRight,
-  Settings,
+  ChevronDown,
   Bell,
   HelpCircle,
   LayoutGrid,
@@ -146,18 +146,19 @@ export function TopBar() {
           </TooltipTrigger>
           <TooltipContent>Help &amp; docs</TooltipContent>
         </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
-              <Settings className="w-3.5 h-3.5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Settings</TooltipContent>
-        </Tooltip>
+        {/* Tenant chip */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-[12px] gap-1 text-muted-foreground hover:text-foreground font-normal"
+        >
+          Tenant: Production
+          <ChevronDown className="w-3 h-3" />
+        </Button>
 
         {/* Avatar */}
-        <div className="w-6 h-6 rounded-full bg-violet-200 dark:bg-violet-800 flex items-center justify-center ml-1 cursor-pointer">
-          <span className="text-[10px] font-bold text-violet-700 dark:text-violet-200">PK</span>
+        <div className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center ml-1 cursor-pointer">
+          <span className="text-[10px] font-bold text-white">NA</span>
         </div>
       </div>
     </header>

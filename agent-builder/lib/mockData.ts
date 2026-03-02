@@ -139,8 +139,18 @@ export const MOCK_EXPLORER_TREE: ExplorerNode[] = [
     section: "resources",
     parentId: null,
     expanded: true,
-    children: ["res-entities-orders"],
+    children: ["res-entities-customer", "res-entities-orders"],
     itemType: "entities",
+  },
+  {
+    id: "res-entities-customer",
+    type: "item",
+    label: "Customer",
+    section: "resources",
+    parentId: "res-entities",
+    expanded: false,
+    children: [],
+    itemType: "entity",
   },
   {
     id: "res-entities-orders",
@@ -249,21 +259,38 @@ export const MOCK_CANVAS_NODES: Node[] = [
   {
     id: "node-agent-1",
     type: "agentNode",
-    position: { x: 220, y: 160 },
+    position: { x: 220, y: 100 },
     data: {
       label: "Due Diligence Agent",
       agentId: "agent-1",
       status: "active",
-      hasWarning: false,
+      hasWarning: true,
+      healthPct: 36,
       escalationCount: 2,
       contextCount: 1,
       toolCount: 2,
     },
     draggable: true,
   },
+  {
+    id: "node-context-1",
+    type: "contextNode",
+    position: { x: 460, y: 370 },
+    data: { label: "New context" },
+    draggable: true,
+  },
 ];
 
-export const MOCK_CANVAS_EDGES: Edge[] = [];
+export const MOCK_CANVAS_EDGES: Edge[] = [
+  {
+    id: "edge-tools-context",
+    source: "node-agent-1",
+    target: "node-context-1",
+    type: "smoothstep",
+    style: { stroke: "#A4B1B8", strokeWidth: 1.5, strokeDasharray: "5 4" },
+    animated: false,
+  },
+];
 
 export const MOCK_CANVAS_GRAPH: CanvasGraph = {
   nodes: MOCK_CANVAS_NODES,

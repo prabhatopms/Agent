@@ -2,24 +2,31 @@
 
 import { useState } from "react";
 import { FileCode2, CircleDot } from "lucide-react";
+import { useSolutionStore } from "@/state/solutionStore";
 
 const TABS = [
   {
     id: "bpmn",
     label: "Invoice Processing.bpmn",
     icon: FileCode2,
-    active: false,
+    explorerNodeId: "sol-bpmn-1",
   },
   {
     id: "definition",
     label: "Definition",
     icon: CircleDot,
-    active: true,
+    explorerNodeId: "sol-agent-def",
   },
 ] as const;
 
 export function CanvasHeader() {
   const [active, setActive] = useState<string>("definition");
+  const { setSelectedExplorerNode } = useSolutionStore();
+
+  const handleTabClick = (id: string, explorerNodeId: string) => {
+    setActive(id);
+    setSelectedExplorerNode(explorerNodeId);
+  };
 
   return (
     <div
@@ -32,12 +39,12 @@ export function CanvasHeader() {
         flexShrink: 0,
       }}
     >
-      {TABS.map(({ id, label, icon: Icon }) => {
+      {TABS.map(({ id, label, icon: Icon, explorerNodeId }) => {
         const isActive = active === id;
         return (
           <button
             key={id}
-            onClick={() => setActive(id)}
+            onClick={() => handleTabClick(id, explorerNodeId)}
             style={{
               display: "flex",
               alignItems: "center",
@@ -56,7 +63,7 @@ export function CanvasHeader() {
               lineHeight: "20px",
               color: isActive ? "#0067DF" : "#526069",
               whiteSpace: "nowrap",
-              marginBottom: -1, // overlap the 1px border-bottom
+              marginBottom: -1,
             }}
           >
             <Icon

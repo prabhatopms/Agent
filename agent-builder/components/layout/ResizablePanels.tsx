@@ -9,47 +9,45 @@ import { ExplorerPanel } from "@/components/explorer/ExplorerPanel";
 import { AgentCanvas } from "@/components/canvas/AgentCanvas";
 import { InspectorPanel } from "@/components/inspector/InspectorPanel";
 import { LeftIconRail } from "./LeftIconRail";
+import { RightIconRail } from "./RightIconRail";
 
 export function ResizablePanels() {
   return (
-    <div className="flex flex-1 overflow-hidden">
-      {/* Fixed 48px icon rail — not resizable */}
+    /*
+     * 3-column grid:
+     *   col 1 — LeftIconRail   (48px fixed)
+     *   col 2 — resizable panes (1fr)
+     *   col 3 — RightIconRail  (48px fixed)
+     */
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "48px 1fr 48px",
+        height: "100%",
+        overflow: "hidden",
+      }}
+    >
       <LeftIconRail />
 
-      {/* Resizable Explorer / Canvas / Inspector */}
-      <ResizablePanelGroup
-        orientation="horizontal"
-        className="flex-1 overflow-hidden"
-      >
-        {/* Left: Explorer */}
-        <ResizablePanel
-          defaultSize={18}
-          minSize={14}
-          maxSize={28}
-          className="min-w-[220px]"
-        >
+      <ResizablePanelGroup orientation="horizontal">
+        <ResizablePanel defaultSize={20} minSize={14} maxSize={30}>
           <ExplorerPanel />
         </ResizablePanel>
 
         <ResizableHandle withHandle />
 
-        {/* Center: Canvas */}
-        <ResizablePanel defaultSize={52} minSize={30}>
+        <ResizablePanel defaultSize={53} minSize={28}>
           <AgentCanvas />
         </ResizablePanel>
 
         <ResizableHandle withHandle />
 
-        {/* Right: Inspector — 500px min to match Figma */}
-        <ResizablePanel
-          defaultSize={27}
-          minSize={22}
-          maxSize={44}
-          className="min-w-[500px]"
-        >
+        <ResizablePanel defaultSize={27} minSize={18} maxSize={50}>
           <InspectorPanel />
         </ResizablePanel>
       </ResizablePanelGroup>
+
+      <RightIconRail />
     </div>
   );
 }

@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
-import { TopBar } from "./TopBar";
-import { ResizablePanels } from "./ResizablePanels";
 import { useSolutionStore } from "@/state/solutionStore";
-import { Skeleton } from "@/components/ui/skeleton";
+import { GlobalHeader } from "./GlobalHeader";
+import { BuildToolbar } from "./BuildToolbar";
+import { ResizablePanels } from "./ResizablePanels";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { RefreshCw, AlertCircle } from "lucide-react";
 
 export function AppShell() {
   const { appStatus, appError, simulateLoad, resetError } = useSolutionStore();
@@ -16,11 +16,28 @@ export function AppShell() {
   }, []);
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground">
-      <TopBar />
+    /*
+     * 3-row grid:
+     *   row 1 — GlobalHeader  (48px)
+     *   row 2 — BuildToolbar  (40px)
+     *   row 3 — content pane  (1fr)
+     */
+    <div
+      style={{
+        display: "grid",
+        gridTemplateRows: "48px 40px 1fr",
+        height: "100vh",
+        width: "100vw",
+        overflow: "hidden",
+      }}
+    >
+      <GlobalHeader />
+      <BuildToolbar />
 
       {appStatus === "loading" && <LoadingSkeleton />}
-      {appStatus === "error" && <ErrorState message={appError} onRetry={resetError} />}
+      {appStatus === "error" && (
+        <ErrorState message={appError} onRetry={resetError} />
+      )}
       {appStatus === "ready" && <ResizablePanels />}
     </div>
   );
@@ -28,61 +45,31 @@ export function AppShell() {
 
 function LoadingSkeleton() {
   return (
-    <div className="flex flex-1 overflow-hidden gap-0">
-      {/* Explorer skeleton */}
-      <div className="w-60 border-r border-border p-3 flex flex-col gap-2 shrink-0">
-        <Skeleton className="h-5 w-32" />
-        <Skeleton className="h-4 w-40" />
-        <Skeleton className="h-4 w-36" />
-        <div className="mt-2" />
-        <Skeleton className="h-5 w-24" />
-        <Skeleton className="h-4 w-44" />
-        <Skeleton className="h-4 w-36" />
-        <Skeleton className="h-4 w-40" />
-        <div className="mt-2" />
-        <Skeleton className="h-5 w-28" />
-        <Skeleton className="h-4 w-32" />
-      </div>
-
-      {/* Canvas skeleton */}
-      <div className="flex-1 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Skeleton className="h-8 w-8 rounded-full" />
-          <Skeleton className="h-1 w-0.5 h-8" />
-          <Skeleton className="h-16 w-48 rounded-lg" />
-          <Skeleton className="h-8 w-0.5" />
-          <Skeleton className="h-8 w-8 rounded-full" />
-        </div>
-      </div>
-
-      {/* Inspector skeleton */}
-      <div className="w-80 border-l border-border p-4 flex flex-col gap-3 shrink-0">
-        <Skeleton className="h-6 w-32" />
-        <Skeleton className="h-4 w-48" />
-        <div className="mt-2" />
-        <Skeleton className="h-4 w-16" />
-        <Skeleton className="h-9 w-full" />
-        <div className="mt-2" />
-        <Skeleton className="h-4 w-24" />
-        <Skeleton className="h-32 w-full" />
-        <div className="mt-2" />
-        <Skeleton className="h-4 w-20" />
-        <Skeleton className="h-24 w-full" />
+    <div className="flex items-center justify-center h-full bg-background">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-[13px] text-muted-foreground">Loading solution…</p>
       </div>
     </div>
   );
 }
 
-function ErrorState({ message, onRetry }: { message: string | null; onRetry: () => void }) {
+function ErrorState({
+  message,
+  onRetry,
+}: {
+  message: string | null;
+  onRetry: () => void;
+}) {
   return (
-    <div className="flex-1 flex items-center justify-center">
-      <div className="flex flex-col items-center gap-4 max-w-sm text-center">
-        <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-950 flex items-center justify-center">
-          <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+    <div className="flex items-center justify-center h-full bg-background">
+      <div className="flex flex-col items-center gap-4 text-center max-w-sm px-6">
+        <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center">
+          <AlertCircle className="w-5 h-5 text-destructive" />
         </div>
         <div>
-          <p className="font-semibold text-foreground mb-1">Failed to load solution</p>
-          <p className="text-sm text-muted-foreground">{message ?? "An unknown error occurred."}</p>
+          <p className="text-[13px] font-semibold mb-1">Failed to load</p>
+          <p className="text-[12px] text-muted-foreground">{message}</p>
         </div>
         <Button size="sm" variant="outline" onClick={onRetry} className="gap-2">
           <RefreshCw className="w-3.5 h-3.5" />

@@ -119,6 +119,7 @@ export interface SolutionState {
   // Selection
   selectedNodeId: string | null; // canvas node id
   selectedAgentId: string | null;
+  selectedCanvasNodeType: string | null; // e.g. "agentNode" | "contextNode"
 
   // Inspector dirty state
   dirtyAgentPatch: Partial<Agent> | null; // local edits not yet applied
@@ -133,6 +134,9 @@ export interface SolutionState {
 
   // Explorer collapsed sections
   collapsedSections: Set<ExplorerSection>;
+
+  // Explorer active item (driven by canvas tab)
+  selectedExplorerNodeId: string | null;
 
   // ── Actions ─────────────────────────────────────────────────────────────────
 
@@ -163,6 +167,9 @@ export interface SolutionState {
   // Canvas
   updateCanvasNodes: (nodes: Node[]) => void;
   updateCanvasEdges: (edges: Edge[]) => void;
+
+  // Explorer highlight
+  setSelectedExplorerNode: (id: string | null) => void;
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -172,12 +179,14 @@ export const useSolutionStore = create<SolutionState>()(
     appStatus: "loading",
     appError: null,
     solution: MOCK_SOLUTION,
-    selectedNodeId: null,
+    selectedNodeId: "node-context-1",
     selectedAgentId: null,
+    selectedCanvasNodeType: "contextNode",
     dirtyAgentPatch: null,
     isDirty: false,
     validationErrors: {},
     collapsedSections: new Set(),
+    selectedExplorerNodeId: "sol-agent-def",
     renameDialog: { open: false, nodeId: "", currentLabel: "" },
     moveDialog: { open: false, nodeId: "", currentSection: "agents" },
 
@@ -221,8 +230,10 @@ export const useSolutionStore = create<SolutionState>()(
         if (nodeId) {
           const canvasNode = s.solution.canvasGraph.nodes.find((n) => n.id === nodeId);
           s.selectedAgentId = canvasNode?.data?.agentId ?? null;
+          s.selectedCanvasNodeType = canvasNode?.type ?? null;
         } else {
           s.selectedAgentId = null;
+          s.selectedCanvasNodeType = null;
         }
       });
     },
@@ -394,6 +405,10 @@ export const useSolutionStore = create<SolutionState>()(
 
     updateCanvasEdges: (edges) => {
       set((s) => { s.solution.canvasGraph.edges = edges; });
+    },
+
+    setSelectedExplorerNode: (id) => {
+      set((s) => { s.selectedExplorerNodeId = id; });
     },
   }))
 );
