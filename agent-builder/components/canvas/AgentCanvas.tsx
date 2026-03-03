@@ -20,10 +20,12 @@ const NODE_TYPES: NodeTypes = {
 };
 
 function CanvasInner() {
-  const { solution, selectedNodeId, selectCanvasNode, updateCanvasNodes } =
-    useSolutionStore();
+  const nodes = useSolutionStore((s) => s.solution.canvasGraph.nodes);
+  const edges = useSolutionStore((s) => s.solution.canvasGraph.edges);
+  const selectedNodeId = useSolutionStore((s) => s.selectedNodeId);
+  const selectCanvasNode = useSolutionStore((s) => s.selectCanvasNode);
+  const updateCanvasNodes = useSolutionStore((s) => s.updateCanvasNodes);
   const [activeTab, setActiveTab] = useState<"form" | "canvas">("canvas");
-  const { nodes, edges } = solution.canvasGraph;
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: { id: string }) => selectCanvasNode(node.id),
@@ -32,10 +34,10 @@ function CanvasInner() {
   const onPaneClick = useCallback(() => selectCanvasNode(null), [selectCanvasNode]);
 
   return (
-    <div style={{ height: "100%", width: "100%", display: "flex", flexDirection: "column" }}>
+    <div style={{ height: "100%", width: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <CanvasHeader />
 
-      <div style={{ flex: 1, position: "relative", background: "#F4F5F7" }}>
+      <div style={{ flex: 1, minHeight: 0, position: "relative", background: "#F4F5F7" }}>
         {/* Form / Canvas segmented control — top right of canvas */}
         <div style={{ position: "absolute", top: 12, right: 16, zIndex: 10 }}>
           <div style={{
@@ -75,7 +77,8 @@ function CanvasInner() {
 
         {activeTab === "form" ? (
           <div style={{
-            height: "100%",
+            position: "absolute",
+            inset: 0,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -87,16 +90,21 @@ function CanvasInner() {
           </div>
         ) : (
           <ReactFlow
+            style={{ position: "absolute", inset: 0 }}
             nodes={nodes.map((n) => ({ ...n, selected: n.id === selectedNodeId }))}
             edges={edges}
             nodeTypes={NODE_TYPES}
             onNodeClick={onNodeClick}
             onPaneClick={onPaneClick}
             onNodesChange={(changes) => {
+              const posChanges = changes.filter(
+                (ch): ch is { type: "position"; id: string; position: { x: number; y: number } } =>
+                  ch.type === "position" && !!ch.position
+              );
+              if (posChanges.length === 0) return;
               const updated = nodes.map((n) => {
-                const c = changes.find((ch) => ch.type === "position" && ch.id === n.id);
-                if (c && c.type === "position" && c.position) return { ...n, position: c.position };
-                return n;
+                const c = posChanges.find((ch) => ch.id === n.id);
+                return c ? { ...n, position: c.position } : n;
               });
               updateCanvasNodes(updated);
             }}

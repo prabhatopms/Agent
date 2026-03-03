@@ -17,7 +17,7 @@ export function SectionRenderer({ section, agent }: SectionRendererProps) {
 
   return (
     <div className="py-0.5">
-      {/* Section header */}
+      {/* Section header — collapsible toggle OR explicit standalone title only */}
       {section.collapsible ? (
         <button
           type="button"
@@ -42,13 +42,13 @@ export function SectionRenderer({ section, agent }: SectionRendererProps) {
             </span>
           )}
         </button>
-      ) : (
-        <div className="px-4 py-2">
+      ) : section.showSectionTitle ? (
+        <div className="px-4 pt-3 pb-1">
           <h3 className="text-[12px] font-semibold text-foreground">
             {section.title}
           </h3>
         </div>
-      )}
+      ) : null}
 
       {/* Description */}
       {!collapsed && section.description && (

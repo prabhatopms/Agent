@@ -266,31 +266,12 @@ export const MOCK_CANVAS_NODES: Node[] = [
       status: "active",
       hasWarning: true,
       healthPct: 36,
-      escalationCount: 2,
-      contextCount: 1,
-      toolCount: 2,
     },
-    draggable: true,
-  },
-  {
-    id: "node-context-1",
-    type: "contextNode",
-    position: { x: 460, y: 370 },
-    data: { label: "New context" },
     draggable: true,
   },
 ];
 
-export const MOCK_CANVAS_EDGES: Edge[] = [
-  {
-    id: "edge-tools-context",
-    source: "node-agent-1",
-    target: "node-context-1",
-    type: "smoothstep",
-    style: { stroke: "#A4B1B8", strokeWidth: 1.5, strokeDasharray: "5 4" },
-    animated: false,
-  },
-];
+export const MOCK_CANVAS_EDGES: Edge[] = [];
 
 export const MOCK_CANVAS_GRAPH: CanvasGraph = {
   nodes: MOCK_CANVAS_NODES,

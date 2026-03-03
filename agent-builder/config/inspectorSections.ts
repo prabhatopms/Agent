@@ -65,6 +65,8 @@ export interface InspectorSection {
   order: number;
   collapsible: boolean;
   defaultCollapsed: boolean;
+  /** Render the section title as a standalone header row (only needed when fields have no visible label, e.g. schemaButton) */
+  showSectionTitle?: boolean;
   visibility?: VisibilityRule[];
   fields: InspectorField[];
 }
@@ -112,6 +114,7 @@ export const INSPECTOR_SECTIONS: InspectorSection[] = [
         type: "tokenTextarea",
         required: true,
         valuePath: "systemPrompt",
+        helperText: "Defines the agent's identity, purpose, and rules. Use {{variable}} tokens to inject dynamic values.",
         validation: { required: true, message: "System prompt cannot be empty." },
         ui: {
           rows: 10,
@@ -136,6 +139,7 @@ export const INSPECTOR_SECTIONS: InspectorSection[] = [
         type: "tokenTextarea",
         required: true,
         valuePath: "userPrompt",
+        helperText: "The specific request given to the agent at runtime. Use {{variable}} tokens to inject dynamic values.",
         ui: {
           rows: 5,
           toolbar: true,
@@ -152,6 +156,7 @@ export const INSPECTOR_SECTIONS: InspectorSection[] = [
     order: 3,
     collapsible: false,
     defaultCollapsed: false,
+    showSectionTitle: true,
     fields: [
       {
         fieldId: "schema",

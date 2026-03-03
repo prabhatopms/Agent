@@ -19,11 +19,13 @@ import {
 } from "@/components/ui/tooltip";
 import {
   AlertCircle,
+  Info,
   Bold,
   Italic,
   Underline,
   Strikethrough,
   List,
+  ListOrdered,
   Code2,
   Table2,
   AtSign,
@@ -44,13 +46,13 @@ interface FieldRendererProps {
 }
 
 export function FieldRenderer({ field, agent }: FieldRendererProps) {
-  const { patchAgentField, validationErrors } = useSolutionStore();
+  const patchAgentField = useSolutionStore((s) => s.patchAgentField);
+  const error = useSolutionStore((s) => s.validationErrors[field.fieldId]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const textareaRef = useRef<any>(null);
 
   const rawValue = getByPath(agent as unknown as Record<string, unknown>, field.valuePath);
   const value = rawValue !== undefined ? rawValue : field.defaultValue ?? "";
-  const error = validationErrors[field.fieldId];
 
   const handleChange = (v: unknown) => {
     patchAgentField(field.fieldId, field.valuePath, v);
@@ -100,7 +102,7 @@ export function FieldRenderer({ field, agent }: FieldRendererProps) {
         {field.helperText && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <AlertCircle className="w-3 h-3 text-muted-foreground cursor-help" />
+              <Info className="w-3 h-3 text-muted-foreground cursor-help" />
             </TooltipTrigger>
             <TooltipContent className="max-w-xs text-[11px]">
               {field.helperText}
@@ -228,10 +230,11 @@ const TOOLBAR_BUTTONS = [
   { icon: <Italic className="w-3 h-3" />, title: "Italic" },
   { icon: <Underline className="w-3 h-3" />, title: "Underline" },
   { icon: <Strikethrough className="w-3 h-3" />, title: "Strikethrough" },
-  { icon: <List className="w-3 h-3" />, title: "List", separator: true },
-  { icon: <Code2 className="w-3 h-3" />, title: "Code" },
+  { icon: <List className="w-3 h-3" />, title: "Bulleted list", separator: true },
+  { icon: <ListOrdered className="w-3 h-3" />, title: "Numbered list" },
+  { icon: <Code2 className="w-3 h-3" />, title: "Code", separator: true },
   { icon: <Table2 className="w-3 h-3" />, title: "Table" },
-  { icon: <AtSign className="w-3 h-3" />, title: "Mention" },
+  { icon: <AtSign className="w-3 h-3" />, title: "Mention", separator: true },
 ];
 
 function TokenTextareaField({

@@ -167,6 +167,9 @@ export interface SolutionState {
   // Canvas
   updateCanvasNodes: (nodes: Node[]) => void;
   updateCanvasEdges: (edges: Edge[]) => void;
+  addChildNode: (agentNodeId: string, portType: string) => void;
+  deleteCanvasNode: (nodeId: string) => void;
+  configureContextNode: (nodeId: string, contextType: "entity" | "index", selectedItems: string[], label: string) => void;
 
   // Explorer highlight
   setSelectedExplorerNode: (id: string | null) => void;
@@ -179,9 +182,9 @@ export const useSolutionStore = create<SolutionState>()(
     appStatus: "loading",
     appError: null,
     solution: MOCK_SOLUTION,
-    selectedNodeId: "node-context-1",
-    selectedAgentId: null,
-    selectedCanvasNodeType: "contextNode",
+    selectedNodeId: "node-agent-1",
+    selectedAgentId: "agent-1",
+    selectedCanvasNodeType: "agentNode",
     dirtyAgentPatch: null,
     isDirty: false,
     validationErrors: {},
@@ -405,6 +408,80 @@ export const useSolutionStore = create<SolutionState>()(
 
     updateCanvasEdges: (edges) => {
       set((s) => { s.solution.canvasGraph.edges = edges; });
+    },
+
+    addChildNode: (agentNodeId, portType) => {
+      const state = get();
+      const agentNode = state.solution.canvasGraph.nodes.find((n) => n.id === agentNodeId);
+      if (!agentNode) return;
+
+      const portPcts: Record<string, number> = {
+        escalations: 0.21,
+        context: 0.50,
+        tools: 0.78,
+      };
+      const pct = portPcts[portType] ?? 0.5;
+      const portCenterX = agentNode.position.x + pct * 288;
+
+      // Offset each additional node for the same port so they don't stack
+      const existing = state.solution.canvasGraph.edges.filter(
+        (e) => e.source === agentNodeId && e.sourceHandle === portType
+      ).length;
+
+      const nodeId = `node-${portType}-${Date.now()}`;
+      const newNode: Node = {
+        id: nodeId,
+        type: "contextNode",
+        position: {
+          x: portCenterX - 48 + existing * 120,
+          y: agentNode.position.y + 96 + 108 + 16, // card + arm + gap
+        },
+        data: { label: "New context", portType },
+        draggable: true,
+      };
+
+      const newEdge: Edge = {
+        id: `edge-${agentNodeId}-${nodeId}`,
+        source: agentNodeId,
+        sourceHandle: portType,
+        target: nodeId,
+        type: "smoothstep",
+        style: { stroke: "#A4B1B8", strokeWidth: 1.5, strokeDasharray: "5 4" },
+      };
+
+      set((s) => {
+        s.solution.canvasGraph.nodes.push(newNode);
+        s.solution.canvasGraph.edges.push(newEdge);
+        // Auto-select the new node so inspector opens
+        s.selectedNodeId = nodeId;
+        s.selectedCanvasNodeType = "contextNode";
+        s.selectedAgentId = null;
+      });
+    },
+
+    deleteCanvasNode: (nodeId) => {
+      set((s) => {
+        s.solution.canvasGraph.nodes = s.solution.canvasGraph.nodes.filter(
+          (n) => n.id !== nodeId
+        );
+        s.solution.canvasGraph.edges = s.solution.canvasGraph.edges.filter(
+          (e) => e.source !== nodeId && e.target !== nodeId
+        );
+        if (s.selectedNodeId === nodeId) {
+          s.selectedNodeId = null;
+          s.selectedAgentId = null;
+          s.selectedCanvasNodeType = null;
+        }
+      });
+    },
+
+    configureContextNode: (nodeId, contextType, selectedItems, label) => {
+      set((s) => {
+        const node = s.solution.canvasGraph.nodes.find((n) => n.id === nodeId);
+        if (node) {
+          node.data = { ...node.data, configured: true, contextType, selectedItems, label };
+        }
+      });
     },
 
     setSelectedExplorerNode: (id) => {

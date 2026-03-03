@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -10,23 +11,34 @@ import {
   AlertCircle,
   Info,
 } from "lucide-react";
-import { useSolutionStore, selectSelectedAgent } from "@/state/solutionStore";
+import { useSolutionStore } from "@/state/solutionStore";
+import type { Agent } from "@/state/solutionStore";
 import { INSPECTOR_SECTIONS } from "@/config/inspectorSections";
 import { SectionRenderer } from "./SectionRenderer";
 import { NewContextPanel } from "./NewContextPanel";
 import { cn } from "@/lib/utils";
 
 export function InspectorPanel() {
-  const {
-    selectedAgentId,
-    selectedCanvasNodeType,
-    isDirty,
-    validationErrors,
-    applyAgentChanges,
-    resetAgentChanges,
-  } = useSolutionStore();
+  const selectedAgentId = useSolutionStore((s) => s.selectedAgentId);
+  const selectedCanvasNodeType = useSolutionStore((s) => s.selectedCanvasNodeType);
+  const isDirty = useSolutionStore((s) => s.isDirty);
+  const validationErrors = useSolutionStore((s) => s.validationErrors);
+  const applyAgentChanges = useSolutionStore((s) => s.applyAgentChanges);
+  const resetAgentChanges = useSolutionStore((s) => s.resetAgentChanges);
 
-  const agent = useSolutionStore(selectSelectedAgent);
+  // Stable references — Immer preserves these unless explicitly mutated
+  const baseAgent = useSolutionStore((s) =>
+    s.solution.agents.find((a) => a.id === s.selectedAgentId) ?? null
+  );
+  const dirtyPatch = useSolutionStore((s) => s.dirtyAgentPatch);
+
+  // Merge locally so the selector never creates a new object (avoids getSnapshot loop)
+  const agent = useMemo<Agent | null>(() => {
+    if (!baseAgent) return null;
+    if (!dirtyPatch) return baseAgent;
+    return { ...baseAgent, ...dirtyPatch } as Agent;
+  }, [baseAgent, dirtyPatch]);
+
   const hasErrors = Object.keys(validationErrors).length > 0;
 
   if (selectedCanvasNodeType === "contextNode") {
@@ -42,7 +54,7 @@ export function InspectorPanel() {
       {/* Inspector header */}
       <div className="px-4 py-3 border-b border-border shrink-0">
         <div className="flex items-center justify-between">
-          <h2 className="text-[14px] font-semibold text-foreground">New Agent</h2>
+          <h2 className="text-[14px] font-semibold text-foreground">{agent.name}</h2>
           {isDirty && (
             <div className="flex items-center gap-1">
               <Button

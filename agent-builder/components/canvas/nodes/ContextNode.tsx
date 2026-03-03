@@ -26,7 +26,8 @@ export const ContextNode = memo(function ContextNode({
   selected,
   id,
 }: NodeProps<ContextNodeData>) {
-  const { selectCanvasNode } = useSolutionStore();
+  const selectCanvasNode = useSolutionStore((s) => s.selectCanvasNode);
+  const deleteCanvasNode = useSolutionStore((s) => s.deleteCanvasNode);
 
   const borderColor = selected ? "#0067DF" : "#CFD8DD";
   const bg = selected ? "#FFFFFF" : "#FFFFFF";
@@ -66,7 +67,7 @@ export const ContextNode = memo(function ContextNode({
             cursor: "pointer",
             borderRadius: 4,
           }}
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); deleteCanvasNode(id); }}
           title="Delete"
         >
           <Trash2 style={{ width: 14, height: 14, color: "#526069" }} />
