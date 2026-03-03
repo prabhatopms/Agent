@@ -170,6 +170,7 @@ export interface SolutionState {
   addChildNode: (agentNodeId: string, portType: string) => void;
   deleteCanvasNode: (nodeId: string) => void;
   configureContextNode: (nodeId: string, contextType: "entity" | "index", selectedItems: string[], label: string) => void;
+  updateContextNodeLabel: (nodeId: string, label: string) => void;
 
   // Explorer highlight
   setSelectedExplorerNode: (id: string | null) => void;
@@ -481,6 +482,13 @@ export const useSolutionStore = create<SolutionState>()(
         if (node) {
           node.data = { ...node.data, configured: true, contextType, selectedItems, label };
         }
+      });
+    },
+
+    updateContextNodeLabel: (nodeId, label) => {
+      set((s) => {
+        const node = s.solution.canvasGraph.nodes.find((n) => n.id === nodeId);
+        if (node) node.data = { ...node.data, label };
       });
     },
 
