@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -98,7 +97,7 @@ export function InspectorPanel() {
       </div>
 
       {/* Sections */}
-      <ScrollArea className="flex-1">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="pb-10">
           {INSPECTOR_SECTIONS.sort((a, b) => a.order - b.order).map(
             (section, idx) => (
@@ -109,7 +108,7 @@ export function InspectorPanel() {
             )
           )}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }
