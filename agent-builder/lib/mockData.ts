@@ -298,52 +298,9 @@ export const MOCK_CANVAS_NODES: Node[] = [
     },
     draggable: true,
   },
-  {
-    id: "node-ctx-order",
-    type: "contextNode",
-    position: { x: 196, y: 300 },
-    data: {
-      label: "Order",
-      portType: "context",
-      configured: true,
-      contextType: "entity",
-      selectedItems: ["Order"],
-    },
-    draggable: true,
-  },
-  {
-    id: "node-ctx-lineitem",
-    type: "contextNode",
-    position: { x: 352, y: 300 },
-    data: {
-      label: "Order Line Item",
-      portType: "context",
-      configured: true,
-      contextType: "entity",
-      selectedItems: ["OrderLineItem"],
-    },
-    draggable: true,
-  },
 ];
 
-export const MOCK_CANVAS_EDGES: Edge[] = [
-  {
-    id: "edge-agent1-ctx-order",
-    source: "node-agent-1",
-    sourceHandle: "context",
-    target: "node-ctx-order",
-    type: "smoothstep",
-    style: { stroke: "#A4B1B8", strokeWidth: 1.5, strokeDasharray: "5 4" },
-  },
-  {
-    id: "edge-agent1-ctx-lineitem",
-    source: "node-agent-1",
-    sourceHandle: "context",
-    target: "node-ctx-lineitem",
-    type: "smoothstep",
-    style: { stroke: "#A4B1B8", strokeWidth: 1.5, strokeDasharray: "5 4" },
-  },
-];
+export const MOCK_CANVAS_EDGES: Edge[] = [];
 
 export const MOCK_CANVAS_GRAPH: CanvasGraph = {
   nodes: MOCK_CANVAS_NODES,
