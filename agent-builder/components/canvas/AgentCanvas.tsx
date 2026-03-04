@@ -13,6 +13,7 @@ import { useSolutionStore } from "@/state/solutionStore";
 import { AgentNode } from "./nodes/AgentNode";
 import { ContextNode } from "./nodes/ContextNode";
 import { CanvasHeader } from "./CanvasHeader";
+import { ExecutionTrailPanel } from "./ExecutionTrailPanel";
 
 const NODE_TYPES: NodeTypes = {
   agentNode: AgentNode,
@@ -25,6 +26,10 @@ function CanvasInner() {
   const selectedNodeId = useSolutionStore((s) => s.selectedNodeId);
   const selectCanvasNode = useSolutionStore((s) => s.selectCanvasNode);
   const updateCanvasNodes = useSolutionStore((s) => s.updateCanvasNodes);
+  const trailPanelOpen = useSolutionStore((s) => s.trailPanelOpen);
+  const isDebugMode = useSolutionStore((s) => s.isDebugMode);
+  const isRunning = useSolutionStore((s) => s.isRunning);
+  const exitDebugMode = useSolutionStore((s) => s.exitDebugMode);
   const [activeTab, setActiveTab] = useState<"form" | "canvas">("canvas");
 
   const onNodeClick = useCallback(
@@ -38,6 +43,89 @@ function CanvasInner() {
       <CanvasHeader />
 
       <div style={{ flex: 1, minHeight: 0, position: "relative", background: "#F4F5F7" }}>
+        {/* Debug mode overlays */}
+        {isDebugMode && (
+          <>
+            {/* Score bar — top left */}
+            <div
+              style={{
+                position: "absolute",
+                top: 12,
+                left: 12,
+                zIndex: 10,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                background: "#FFFFFF",
+                border: "1px solid #CFD8DD",
+                borderRadius: 6,
+                padding: "4px 10px",
+                boxShadow: "0 1px 4px #0000001A",
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: "'Noto Sans', system-ui, sans-serif",
+                  fontSize: 12,
+                  color: "#273139",
+                  fontWeight: 600,
+                }}
+              >
+                Score: NA
+              </span>
+              <div
+                style={{
+                  width: 72,
+                  height: 4,
+                  background: "#CFD8DD",
+                  borderRadius: 2,
+                  overflow: "hidden",
+                }}
+              >
+                <div style={{ width: "0%", height: "100%", background: "#0067DF" }} />
+              </div>
+              <span
+                style={{
+                  fontFamily: "'Noto Sans', system-ui, sans-serif",
+                  fontSize: 12,
+                  color: "#526069",
+                }}
+              >
+                0%
+              </span>
+            </div>
+
+            {/* Back to design mode — top center, only when not actively running */}
+            {!isRunning && (
+              <button
+                onClick={exitDebugMode}
+                style={{
+                  position: "absolute",
+                  top: 12,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  zIndex: 10,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: "#FFFFFF",
+                  border: "1px solid #CFD8DD",
+                  borderRadius: 6,
+                  padding: "4px 12px",
+                  cursor: "pointer",
+                  boxShadow: "0 1px 4px #0000001A",
+                  fontFamily: "'Noto Sans', system-ui, sans-serif",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "#273139",
+                }}
+              >
+                ← Back to design mode
+              </button>
+            )}
+          </>
+        )}
+
         {/* Form / Canvas segmented control — top right of canvas */}
         <div style={{ position: "absolute", top: 12, right: 16, zIndex: 10 }}>
           <div style={{
@@ -135,6 +223,8 @@ function CanvasInner() {
           </ReactFlow>
         )}
       </div>
+
+      {trailPanelOpen && <ExecutionTrailPanel />}
     </div>
   );
 }

@@ -5,10 +5,13 @@ import {
   ChevronRight,
   Undo2,
   Redo2,
-  Play,
+  Bug,
   FlaskConical,
   Upload,
   X,
+  Square,
+  Play,
+  SkipForward,
 } from "lucide-react";
 import { useSolutionStore } from "@/state/solutionStore";
 
@@ -42,7 +45,17 @@ const ICON_BTN: React.CSSProperties = {
 };
 
 export function BuildToolbar() {
-  const { isDirty } = useSolutionStore();
+  const isDirty = useSolutionStore((s) => s.isDirty);
+  const appStatus = useSolutionStore((s) => s.appStatus);
+  const isRunning = useSolutionStore((s) => s.isRunning);
+  const agentName = useSolutionStore(
+    (s) => s.solution.agents.find((a) => a.id === s.selectedAgentId)?.name ?? "Agent"
+  );
+  const startDebug = useSolutionStore((s) => s.startDebug);
+  const stopDebug = useSolutionStore((s) => s.stopDebug);
+  const runEvaluation = useSolutionStore((s) => s.runEvaluation);
+
+  const isReady = appStatus === "ready";
 
   return (
     <div
@@ -86,7 +99,7 @@ export function BuildToolbar() {
             gap: 4,
           }}
         >
-          New Agent
+          {agentName}
           {isDirty && (
             <span
               style={{
@@ -101,7 +114,7 @@ export function BuildToolbar() {
         </span>
       </nav>
 
-      {/* Right: Undo/Redo + actions */}
+      {/* Right: Undo/Redo + action buttons */}
       <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
         <button style={ICON_BTN} title="Undo">
           <Undo2 style={{ width: 15, height: 15 }} />
@@ -110,48 +123,87 @@ export function BuildToolbar() {
           <Redo2 style={{ width: 15, height: 15 }} />
         </button>
 
-        {/* separator */}
-        <div
-          style={{
-            width: 1,
-            height: 20,
-            background: "#CFD8DD",
-            margin: "0 6px",
-          }}
-        />
+        <div style={{ width: 1, height: 20, background: "#CFD8DD", margin: "0 6px" }} />
 
-        <button style={{ ...BTN, color: "#273139" }} title="Debug">
-          <Play style={{ width: 13, height: 13 }} />
-          Debug
-        </button>
+        {isRunning ? (
+          <>
+            <button
+              style={{ ...BTN, color: "#D52B1E" }}
+              title="Stop"
+              onClick={stopDebug}
+            >
+              <Square style={{ width: 13, height: 13, fill: "#D52B1E" }} />
+              Stop
+            </button>
 
-        <button style={{ ...BTN, color: "#273139" }} title="Evaluate">
-          <FlaskConical style={{ width: 13, height: 13 }} />
-          Evaluate
-        </button>
+            <button
+              style={{ ...BTN, opacity: 0.4, cursor: "not-allowed" }}
+              title="Continue"
+              disabled
+            >
+              <Play style={{ width: 13, height: 13 }} />
+              Continue
+            </button>
 
-        <button
-          style={{
-            ...BTN,
-            background: "#0067DF",
-            color: "#FFFFFF",
-            fontWeight: 600,
-          }}
-          title="Publish"
-        >
-          <Upload style={{ width: 13, height: 13 }} />
-          Publish
-        </button>
+            <button
+              style={{ ...BTN, opacity: 0.4, cursor: "not-allowed" }}
+              title="Next step"
+              disabled
+            >
+              <SkipForward style={{ width: 13, height: 13 }} />
+              Next step
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              style={{
+                ...BTN,
+                color: "#273139",
+                opacity: isReady ? 1 : 0.4,
+                cursor: isReady ? "pointer" : "not-allowed",
+              }}
+              title="Debug"
+              disabled={!isReady}
+              onClick={startDebug}
+            >
+              <Bug style={{ width: 13, height: 13 }} />
+              Debug
+            </button>
 
-        {/* separator */}
-        <div
-          style={{
-            width: 1,
-            height: 20,
-            background: "#CFD8DD",
-            margin: "0 6px",
-          }}
-        />
+            <button
+              style={{
+                ...BTN,
+                color: "#273139",
+                opacity: isReady ? 1 : 0.4,
+                cursor: isReady ? "pointer" : "not-allowed",
+              }}
+              title="Evaluate"
+              disabled={!isReady}
+              onClick={runEvaluation}
+            >
+              <FlaskConical style={{ width: 13, height: 13 }} />
+              Evaluate
+            </button>
+
+            <button
+              style={{
+                ...BTN,
+                background: isReady ? "#0067DF" : "#A4B1B8",
+                color: "#FFFFFF",
+                fontWeight: 600,
+                cursor: isReady ? "pointer" : "not-allowed",
+              }}
+              title="Publish"
+              disabled={!isReady}
+            >
+              <Upload style={{ width: 13, height: 13 }} />
+              Publish
+            </button>
+          </>
+        )}
+
+        <div style={{ width: 1, height: 20, background: "#CFD8DD", margin: "0 6px" }} />
 
         <button style={ICON_BTN} title="Close">
           <X style={{ width: 16, height: 16 }} />

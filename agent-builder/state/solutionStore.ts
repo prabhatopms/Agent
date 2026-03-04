@@ -6,12 +6,39 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import { Edge, Node } from "reactflow";
-import { MOCK_SOLUTION } from "@/lib/mockData";
+import { MOCK_SOLUTION, MOCK_AGENT_TRACE, MOCK_DEBUG_TRACE, MOCK_RUN_LOGS } from "@/lib/mockData";
 import { setByPath } from "@/lib/path";
 
 // ─── Domain Types ─────────────────────────────────────────────────────────────
 
 export type ItemStatus = "active" | "draft" | "error" | "running";
+
+export interface TraceNode {
+  id: string;
+  label: string;
+  type: "run" | "step";
+  status: "pending" | "running" | "success" | "failure";
+  model?: string;
+  durationSeconds?: number;
+  children?: TraceNode[];
+  explanation?: string;
+  inputs?: Record<string, string>;
+  outputs?: Record<string, string>;
+  errors?: Record<string, string>;
+}
+
+export interface RunLog {
+  time: string;
+  message: string;
+}
+
+export interface HistoryRun {
+  id: string;
+  label: string;
+  status: "success" | "failure";
+  time: string;
+  trace: TraceNode;
+}
 
 export interface SchemaField {
   name: string;
@@ -138,6 +165,21 @@ export interface SolutionState {
   // Explorer active item (driven by canvas tab)
   selectedExplorerNodeId: string | null;
 
+  // Execution trail
+  trailPanelOpen: boolean;
+  agentTrace: TraceNode | null;
+  trailSelectedNodeId: string | null;
+  trailActiveTab: "results" | "metadata" | "feedback";
+
+  // Debug mode
+  isDebugMode: boolean;
+  isRunning: boolean;
+  runStatus: "running" | "failed" | "success" | null;
+  runLogs: RunLog[];
+  trailSection: "execution-trail" | "history" | "evaluations";
+  traceHistory: HistoryRun[];
+  historyBadgeCount: number;
+
   // ── Actions ─────────────────────────────────────────────────────────────────
 
   // Lifecycle
@@ -174,6 +216,18 @@ export interface SolutionState {
 
   // Explorer highlight
   setSelectedExplorerNode: (id: string | null) => void;
+
+  // Execution trail
+  runEvaluation: () => void;
+  selectTrailNode: (id: string) => void;
+  setTrailTab: (tab: "results" | "metadata" | "feedback") => void;
+  closeTrailPanel: () => void;
+
+  // Debug simulation
+  startDebug: () => void;
+  stopDebug: () => void;
+  exitDebugMode: () => void;
+  setTrailSection: (section: "execution-trail" | "history" | "evaluations") => void;
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -193,6 +247,17 @@ export const useSolutionStore = create<SolutionState>()(
     selectedExplorerNodeId: "sol-agent-def",
     renameDialog: { open: false, nodeId: "", currentLabel: "" },
     moveDialog: { open: false, nodeId: "", currentSection: "agents" },
+    trailPanelOpen: false,
+    agentTrace: null,
+    trailSelectedNodeId: null,
+    trailActiveTab: "results",
+    isDebugMode: false,
+    isRunning: false,
+    runStatus: null,
+    runLogs: [],
+    trailSection: "execution-trail",
+    traceHistory: [],
+    historyBadgeCount: 0,
 
     // ── Lifecycle ──────────────────────────────────────────────────────────────
 
@@ -494,6 +559,125 @@ export const useSolutionStore = create<SolutionState>()(
 
     setSelectedExplorerNode: (id) => {
       set((s) => { s.selectedExplorerNodeId = id; });
+    },
+
+    // ── Execution trail ────────────────────────────────────────────────────────
+
+    runEvaluation: () => {
+      // Build a "running" snapshot from mock — deep spread so Immer gets plain objects
+      const runningTrace: TraceNode = {
+        ...MOCK_AGENT_TRACE,
+        status: "running",
+        durationSeconds: undefined,
+        children: MOCK_AGENT_TRACE.children?.map((c) => ({
+          ...c,
+          status: "pending" as const,
+          durationSeconds: undefined,
+        })),
+      };
+      set((s) => {
+        s.trailPanelOpen = true;
+        s.agentTrace = runningTrace;
+        s.trailSelectedNodeId = "run-1";
+        s.trailActiveTab = "results";
+      });
+      // Simulate completion after 1.5 s
+      setTimeout(() => {
+        set((s) => {
+          if (!s.agentTrace) return;
+          s.agentTrace.status = "success";
+          s.agentTrace.durationSeconds = 14.12;
+          if (s.agentTrace.children) {
+            MOCK_AGENT_TRACE.children?.forEach((orig, i) => {
+              if (s.agentTrace!.children![i]) {
+                s.agentTrace!.children![i].status = "success";
+                s.agentTrace!.children![i].durationSeconds = orig.durationSeconds;
+              }
+            });
+          }
+        });
+      }, 1500);
+    },
+
+    selectTrailNode: (id) => {
+      set((s) => { s.trailSelectedNodeId = id; });
+    },
+
+    setTrailTab: (tab) => {
+      set((s) => { s.trailActiveTab = tab; });
+    },
+
+    closeTrailPanel: () => {
+      set((s) => {
+        s.trailPanelOpen = false;
+        s.agentTrace = null;
+        s.trailSelectedNodeId = null;
+      });
+    },
+
+    startDebug: () => {
+      set((s) => {
+        s.isDebugMode = true;
+        s.isRunning = true;
+        s.runStatus = "running";
+        s.trailPanelOpen = true;
+        s.agentTrace = null;
+        s.trailSection = "execution-trail";
+        s.runLogs = [];
+        s.trailSelectedNodeId = null;
+      });
+      // Stream logs at 400ms intervals
+      MOCK_RUN_LOGS.forEach((log, i) => {
+        setTimeout(() => {
+          set((s) => { s.runLogs.push({ ...log }); });
+        }, (i + 1) * 400);
+      });
+      // Fail after 2.5s
+      setTimeout(() => {
+        const runId = `run-${Date.now()}`;
+        const trace: TraceNode = {
+          ...MOCK_DEBUG_TRACE,
+          children: MOCK_DEBUG_TRACE.children?.map((c) => ({ ...c })),
+        };
+        set((s) => {
+          s.isRunning = false;
+          s.runStatus = "failed";
+          s.agentTrace = trace;
+          s.trailSelectedNodeId = trace.id;
+          s.traceHistory.unshift({
+            id: runId,
+            label: trace.label,
+            status: "failure",
+            time: new Date().toLocaleTimeString(),
+            trace: { ...trace, children: trace.children?.map((c) => ({ ...c })) },
+          });
+          s.historyBadgeCount = s.traceHistory.length;
+        });
+      }, 2500);
+    },
+
+    stopDebug: () => {
+      set((s) => {
+        s.isRunning = false;
+        s.runStatus = null;
+      });
+    },
+
+    exitDebugMode: () => {
+      set((s) => {
+        s.isDebugMode = false;
+        s.isRunning = false;
+        s.runStatus = null;
+        s.trailPanelOpen = false;
+        s.agentTrace = null;
+        s.runLogs = [];
+        s.trailSelectedNodeId = null;
+        s.trailSection = "execution-trail";
+      });
+    },
+
+    setTrailSection: (section) => {
+      set((s) => { s.trailSection = section; });
     },
   }))
 );

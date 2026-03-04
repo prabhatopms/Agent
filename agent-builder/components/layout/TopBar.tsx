@@ -11,6 +11,9 @@ import {
   LayoutGrid,
   Undo2,
   Redo2,
+  Square,
+  Play,
+  SkipForward,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -23,7 +26,12 @@ import { useSolutionStore } from "@/state/solutionStore";
 import { cn } from "@/lib/utils";
 
 export function TopBar() {
-  const { isDirty, appStatus } = useSolutionStore();
+  const isDirty = useSolutionStore((s) => s.isDirty);
+  const appStatus = useSolutionStore((s) => s.appStatus);
+  const runEvaluation = useSolutionStore((s) => s.runEvaluation);
+  const isRunning = useSolutionStore((s) => s.isRunning);
+  const startDebug = useSolutionStore((s) => s.startDebug);
+  const stopDebug = useSolutionStore((s) => s.stopDebug);
 
   return (
     <header className="h-10 flex items-center px-3 gap-2 border-b border-border bg-background shrink-0 z-10">
@@ -76,54 +84,107 @@ export function TopBar() {
 
       <div className="flex-1" />
 
-      {/* Action buttons */}
+      {/* Action buttons — conditional on running state */}
       <div className="flex items-center gap-1">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2.5 text-[12px] gap-1.5"
-              disabled={appStatus !== "ready"}
-            >
-              <Bug className="w-3.5 h-3.5" />
-              Debug
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Run in debug mode</TooltipContent>
-        </Tooltip>
+        {isRunning ? (
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2.5 text-[12px] gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50"
+                  onClick={stopDebug}
+                >
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                  Stop
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Stop execution</TooltipContent>
+            </Tooltip>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2.5 text-[12px] gap-1.5"
-              disabled={appStatus !== "ready"}
-            >
-              <ClipboardCheck className="w-3.5 h-3.5" />
-              Evaluate
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Run evaluation suite</TooltipContent>
-        </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2.5 text-[12px] gap-1.5"
+                  disabled
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  Continue
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Continue execution</TooltipContent>
+            </Tooltip>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              size="sm"
-              className={cn(
-                "h-7 px-3 text-[12px] gap-1.5 font-medium",
-                "bg-violet-600 hover:bg-violet-700 text-white"
-              )}
-              disabled={appStatus !== "ready"}
-            >
-              <Globe className="w-3.5 h-3.5" />
-              Publish
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Publish to production</TooltipContent>
-        </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2.5 text-[12px] gap-1.5"
+                  disabled
+                >
+                  <SkipForward className="w-3.5 h-3.5" />
+                  Next step
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Step to next trace node</TooltipContent>
+            </Tooltip>
+          </>
+        ) : (
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2.5 text-[12px] gap-1.5"
+                  disabled={appStatus !== "ready"}
+                  onClick={startDebug}
+                >
+                  <Bug className="w-3.5 h-3.5" />
+                  Debug
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Run in debug mode</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2.5 text-[12px] gap-1.5"
+                  disabled={appStatus !== "ready"}
+                  onClick={runEvaluation}
+                >
+                  <ClipboardCheck className="w-3.5 h-3.5" />
+                  Evaluate
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Run evaluation suite</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  className={cn(
+                    "h-7 px-3 text-[12px] gap-1.5 font-medium",
+                    "bg-violet-600 hover:bg-violet-700 text-white"
+                  )}
+                  disabled={appStatus !== "ready"}
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  Publish
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Publish to production</TooltipContent>
+            </Tooltip>
+          </>
+        )}
       </div>
 
       <Separator orientation="vertical" className="h-4 mx-1" />

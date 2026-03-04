@@ -16,9 +16,11 @@ import type { Agent } from "@/state/solutionStore";
 import { INSPECTOR_SECTIONS } from "@/config/inspectorSections";
 import { SectionRenderer } from "./SectionRenderer";
 import { NewContextPanel } from "./NewContextPanel";
+import { OutputPanel } from "./OutputPanel";
 import { cn } from "@/lib/utils";
 
 export function InspectorPanel() {
+  const isDebugMode = useSolutionStore((s) => s.isDebugMode);
   const selectedAgentId = useSolutionStore((s) => s.selectedAgentId);
   const selectedCanvasNodeType = useSolutionStore((s) => s.selectedCanvasNodeType);
   const isDirty = useSolutionStore((s) => s.isDirty);
@@ -40,6 +42,10 @@ export function InspectorPanel() {
   }, [baseAgent, dirtyPatch]);
 
   const hasErrors = Object.keys(validationErrors).length > 0;
+
+  if (isDebugMode) {
+    return <OutputPanel />;
+  }
 
   if (selectedCanvasNodeType === "contextNode") {
     return <NewContextPanel />;
