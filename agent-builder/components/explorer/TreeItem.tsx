@@ -91,6 +91,8 @@ export function TreeItem({ nodeId, allNodes, depth }: TreeItemProps) {
     openRenameDialog,
     openMoveDialog,
     selectCanvasNode,
+    setCanvasMode,
+    setSelectedExplorerNode,
   } = useSolutionStore();
 
   const node = allNodes.find((n) => n.id === nodeId);
@@ -107,6 +109,19 @@ export function TreeItem({ nodeId, allNodes, depth }: TreeItemProps) {
     node.id === selectedExplorerNodeId;
 
   const handleClick = () => {
+    // BPMN file → switch to process canvas
+    if (node.itemType === "bpmn") {
+      setCanvasMode("process");
+      setSelectedExplorerNode(nodeId);
+      return;
+    }
+    // Agent definition → switch to agent canvas
+    if (node.itemType === "definition") {
+      setCanvasMode("agent");
+      setSelectedExplorerNode(nodeId);
+      selectCanvasNode("node-agent-1");
+      return;
+    }
     // If node has an agentId, select the agent regardless of folder/item type
     if (node.agentId) {
       const canvasNode = solution.canvasGraph.nodes.find(

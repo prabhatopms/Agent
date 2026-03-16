@@ -3,7 +3,9 @@
 import { useRef, useState, useCallback } from "react";
 import { ExplorerPanel } from "@/components/explorer/ExplorerPanel";
 import { AgentCanvas } from "@/components/canvas/AgentCanvas";
+import { ProcessCanvas } from "@/components/canvas/ProcessCanvas";
 import { InspectorPanel } from "@/components/inspector/InspectorPanel";
+import { useSolutionStore } from "@/state/solutionStore";
 import { LeftIconRail } from "./LeftIconRail";
 import { RightIconRail } from "./RightIconRail";
 
@@ -67,6 +69,7 @@ function DragHandle({ onDelta }: { onDelta: (delta: number) => void }) {
 export function ResizablePanels() {
   const [explorerW, setExplorerW] = useState(280);
   const [inspectorW, setInspectorW] = useState(320);
+  const canvasMode = useSolutionStore((s) => s.canvasMode);
 
   const onLeftDelta = useCallback((delta: number) => {
     setExplorerW((w) =>
@@ -115,7 +118,7 @@ export function ResizablePanels() {
         <DragHandle onDelta={onLeftDelta} />
 
         <div style={{ flex: 1, minWidth: 0, height: "100%", overflow: "hidden" }}>
-          <AgentCanvas />
+          {canvasMode === "process" ? <ProcessCanvas /> : <AgentCanvas />}
         </div>
 
         <DragHandle onDelta={onRightDelta} />

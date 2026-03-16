@@ -165,6 +165,9 @@ export interface SolutionState {
   // Explorer active item (driven by canvas tab)
   selectedExplorerNodeId: string | null;
 
+  // Canvas mode — "agent" = agent definition canvas, "process" = agentic process BPMN canvas
+  canvasMode: "agent" | "process";
+
   // Execution trail
   trailPanelOpen: boolean;
   agentTrace: TraceNode | null;
@@ -217,6 +220,9 @@ export interface SolutionState {
   // Explorer highlight
   setSelectedExplorerNode: (id: string | null) => void;
 
+  // Canvas mode
+  setCanvasMode: (mode: "agent" | "process") => void;
+
   // Execution trail
   runEvaluation: () => void;
   selectTrailNode: (id: string) => void;
@@ -258,6 +264,7 @@ export const useSolutionStore = create<SolutionState>()(
     trailSection: "execution-trail",
     traceHistory: [],
     historyBadgeCount: 0,
+    canvasMode: "agent",
 
     // ── Lifecycle ──────────────────────────────────────────────────────────────
 
@@ -559,6 +566,10 @@ export const useSolutionStore = create<SolutionState>()(
 
     setSelectedExplorerNode: (id) => {
       set((s) => { s.selectedExplorerNodeId = id; });
+    },
+
+    setCanvasMode: (mode) => {
+      set((s) => { s.canvasMode = mode; });
     },
 
     // ── Execution trail ────────────────────────────────────────────────────────

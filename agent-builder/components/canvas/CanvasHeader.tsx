@@ -21,11 +21,12 @@ const TABS = [
 
 export function CanvasHeader() {
   const [active, setActive] = useState<string>("definition");
-  const { setSelectedExplorerNode } = useSolutionStore();
+  const { setSelectedExplorerNode, setCanvasMode } = useSolutionStore();
 
   const handleTabClick = (id: string, explorerNodeId: string) => {
     setActive(id);
     setSelectedExplorerNode(explorerNodeId);
+    setCanvasMode(id === "bpmn" ? "process" : "agent");
   };
 
   return (
