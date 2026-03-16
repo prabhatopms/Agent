@@ -8,7 +8,6 @@ import {
   RotateCcw,
   Save,
   AlertCircle,
-  Info,
 } from "lucide-react";
 import { useSolutionStore } from "@/state/solutionStore";
 import type { Agent } from "@/state/solutionStore";
@@ -16,24 +15,27 @@ import { INSPECTOR_SECTIONS } from "@/config/inspectorSections";
 import { SectionRenderer } from "./SectionRenderer";
 import { NewContextPanel } from "./NewContextPanel";
 import { OutputPanel } from "./OutputPanel";
+import { ProcessNodePropertiesPanel } from "./ProcessNodePropertiesPanel";
 import { cn } from "@/lib/utils";
 
-export function InspectorPanel() {
-  const isDebugMode = useSolutionStore((s) => s.isDebugMode);
-  const selectedAgentId = useSolutionStore((s) => s.selectedAgentId);
-  const selectedCanvasNodeType = useSolutionStore((s) => s.selectedCanvasNodeType);
-  const isDirty = useSolutionStore((s) => s.isDirty);
-  const validationErrors = useSolutionStore((s) => s.validationErrors);
-  const applyAgentChanges = useSolutionStore((s) => s.applyAgentChanges);
-  const resetAgentChanges = useSolutionStore((s) => s.resetAgentChanges);
+const BPMN_NODE_TYPES = new Set([
+  "startEvent", "endEvent", "serviceTask", "userTask", "gateway", "agentAction",
+]);
 
-  // Stable references — Immer preserves these unless explicitly mutated
+export function InspectorPanel() {
+  const rightPanelView         = useSolutionStore((s) => s.rightPanelView);
+  const selectedAgentId        = useSolutionStore((s) => s.selectedAgentId);
+  const selectedCanvasNodeType = useSolutionStore((s) => s.selectedCanvasNodeType);
+  const isDirty                = useSolutionStore((s) => s.isDirty);
+  const validationErrors       = useSolutionStore((s) => s.validationErrors);
+  const applyAgentChanges      = useSolutionStore((s) => s.applyAgentChanges);
+  const resetAgentChanges      = useSolutionStore((s) => s.resetAgentChanges);
+
   const baseAgent = useSolutionStore((s) =>
     s.solution.agents.find((a) => a.id === s.selectedAgentId) ?? null
   );
   const dirtyPatch = useSolutionStore((s) => s.dirtyAgentPatch);
 
-  // Merge locally so the selector never creates a new object (avoids getSnapshot loop)
   const agent = useMemo<Agent | null>(() => {
     if (!baseAgent) return null;
     if (!dirtyPatch) return baseAgent;
@@ -42,8 +44,14 @@ export function InspectorPanel() {
 
   const hasErrors = Object.keys(validationErrors).length > 0;
 
-  if (isDebugMode) {
+  // Output panel — shown when rightPanelView is "output"
+  if (rightPanelView === "output") {
     return <OutputPanel />;
+  }
+
+  // Properties panel routing
+  if (selectedCanvasNodeType && BPMN_NODE_TYPES.has(selectedCanvasNodeType)) {
+    return <ProcessNodePropertiesPanel />;
   }
 
   if (selectedCanvasNodeType === "contextNode") {
@@ -124,7 +132,7 @@ function EmptyInspector() {
           No node selected
         </p>
         <p className="text-[12px] text-muted-foreground">
-          Click an agent node on the canvas to configure its properties.
+          Click a node on the canvas to view its properties.
         </p>
       </div>
     </div>

@@ -6,7 +6,7 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import { Edge, Node } from "reactflow";
-import { MOCK_SOLUTION, MOCK_AGENT_TRACE, MOCK_DEBUG_TRACE, MOCK_RUN_LOGS } from "@/lib/mockData";
+import { MOCK_SOLUTION, MOCK_AGENT_TRACE, MOCK_DEBUG_TRACE, MOCK_RUN_LOGS, MOCK_PROCESS_NODES, MOCK_PROCESS_EDGES } from "@/lib/mockData";
 import { setByPath } from "@/lib/path";
 
 // ─── Domain Types ─────────────────────────────────────────────────────────────
@@ -139,7 +139,10 @@ export interface ProcessArgument {
 export interface EntityVariable {
   id: string;
   name: string;
-  entityType: string; // references a Data Fabric entity schema
+  entityType: string;                    // which Data Fabric table (e.g. "CustomerData")
+  recordMode: "single" | "multiple";     // single record or full table reference
+  criteriaField?: string;                // field used to select the record (e.g. "customerId")
+  criteriaValue?: string;                // value to match (literal or @variable expression)
 }
 
 export interface Solution {
@@ -205,6 +208,13 @@ export interface SolutionState {
   // Left panel view — which panel the left icon rail has activated
   leftPanelView: "explorer" | "datamanager";
 
+  // Right panel view — "properties" shows node inspector, "output" shows run logs
+  rightPanelView: "properties" | "output";
+
+  // Process (BPMN) canvas node/edge state — kept in store so inspector can read/write
+  processCanvasNodes: Node[];
+  processCanvasEdges: Edge[];
+
   // Data Manager — process-level variables, arguments, entity variables
   processVariables: ProcessVariable[];
   processArguments: ProcessArgument[];
@@ -268,6 +278,19 @@ export interface SolutionState {
   // Left panel
   setLeftPanelView: (view: "explorer" | "datamanager") => void;
 
+  // Right panel
+  setRightPanelView: (view: "properties" | "output") => void;
+
+  // Process canvas node selection (BPMN nodes)
+  selectProcessNode: (nodeId: string, nodeType: string) => void;
+
+  // Process canvas node data editing (live preview from inspector)
+  updateProcessNodeData: (nodeId: string, patch: Record<string, unknown>) => void;
+
+  // Process canvas graph (ReactFlow state)
+  updateProcessCanvasNodes: (nodes: Node[]) => void;
+  updateProcessCanvasEdges: (edges: Edge[]) => void;
+
   // Data Manager actions
   addProcessVariable: (v: Omit<ProcessVariable, "id">) => void;
   updateProcessVariable: (id: string, patch: Partial<Omit<ProcessVariable, "id">>) => void;
@@ -321,6 +344,9 @@ export const useSolutionStore = create<SolutionState>()(
     historyBadgeCount: 0,
     canvasMode: "agent",
     leftPanelView: "explorer",
+    rightPanelView: "properties",
+    processCanvasNodes: MOCK_PROCESS_NODES,
+    processCanvasEdges: MOCK_PROCESS_EDGES,
     processVariables: [
       { id: "pv-1", name: "applicationDate", type: "DateTime" },
       { id: "pv-2", name: "email",           type: "String" },
@@ -329,8 +355,8 @@ export const useSolutionStore = create<SolutionState>()(
     ],
     processArguments: [],
     entityVariables: [
-      { id: "ev-1", name: "CustomerDataSet1", entityType: "CustomerData" },
-      { id: "ev-2", name: "CustomerDataSet2", entityType: "CustomerData" },
+      { id: "ev-1", name: "CustomerDataSet1", entityType: "CustomerData", recordMode: "single",   criteriaField: "customerId", criteriaValue: "@customerId" },
+      { id: "ev-2", name: "CustomerDataSet2", entityType: "CustomerData", recordMode: "multiple" },
     ],
 
     // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -643,6 +669,34 @@ export const useSolutionStore = create<SolutionState>()(
       set((s) => { s.leftPanelView = view; });
     },
 
+    setRightPanelView: (view) => {
+      set((s) => { s.rightPanelView = view; });
+    },
+
+    selectProcessNode: (nodeId, nodeType) => {
+      set((s) => {
+        s.selectedNodeId = nodeId;
+        s.selectedCanvasNodeType = nodeType;
+        s.selectedAgentId = null;
+        s.rightPanelView = "properties";
+      });
+    },
+
+    updateProcessNodeData: (nodeId, patch) => {
+      set((s) => {
+        const node = s.processCanvasNodes.find((n) => n.id === nodeId);
+        if (node) node.data = { ...node.data, ...patch };
+      });
+    },
+
+    updateProcessCanvasNodes: (nodes) => {
+      set((s) => { s.processCanvasNodes = nodes; });
+    },
+
+    updateProcessCanvasEdges: (edges) => {
+      set((s) => { s.processCanvasEdges = edges; });
+    },
+
     // ── Data Manager ───────────────────────────────────────────────────────────
 
     addProcessVariable: (v) => {
@@ -752,6 +806,7 @@ export const useSolutionStore = create<SolutionState>()(
         s.trailSection = "execution-trail";
         s.runLogs = [];
         s.trailSelectedNodeId = null;
+        s.rightPanelView = "output";
       });
       // Stream logs at 400ms intervals
       MOCK_RUN_LOGS.forEach((log, i) => {

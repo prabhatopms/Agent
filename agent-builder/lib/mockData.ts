@@ -461,6 +461,75 @@ export const MOCK_RUN_LOGS: RunLog[] = [
   },
 ];
 
+// ─── Process Canvas (BPMN) ────────────────────────────────────────────────────
+
+const EDGE_STYLE = { stroke: "#A4B1B8", strokeWidth: 1.5 };
+const LABEL_STYLE = { fontFamily: "'Noto Sans', system-ui, sans-serif", fontSize: 11, fill: "#526069" };
+const LABEL_BG_STYLE = { fill: "#F4F5F7" };
+
+export const MOCK_PROCESS_NODES: Node[] = [
+  { id: "start",        type: "startEvent",   position: { x: 60,  y: 200 }, data: { label: "Start" } },
+  { id: "classify",     type: "serviceTask",  position: { x: 160, y: 180 }, data: { label: "Classify Intent", description: "" } },
+  { id: "gateway",      type: "gateway",      position: { x: 370, y: 186 }, data: { label: "Intent?" } },
+  { id: "fetch-order",  type: "serviceTask",  position: { x: 490, y: 100 }, data: { label: "Fetch Order Details", description: "" } },
+  { id: "agent-action", type: "agentAction",  position: { x: 700, y: 90  }, data: { agentName: "Customer Support Agent", label: "Customer Support Agent" } },
+  { id: "create-ticket",type: "serviceTask",  position: { x: 490, y: 270 }, data: { label: "Create Ticket", description: "" } },
+  { id: "end-resolved", type: "endEvent",     position: { x: 990, y: 113 }, data: { label: "Resolved",  variant: "green" } },
+  { id: "end-escalated",type: "endEvent",     position: { x: 700, y: 283 }, data: { label: "Escalated", variant: "red"   } },
+];
+
+export const MOCK_PROCESS_EDGES: Edge[] = [
+  { id: "e-start-classify",    source: "start",        target: "classify",      style: EDGE_STYLE },
+  { id: "e-classify-gateway",  source: "classify",     target: "gateway",       style: EDGE_STYLE },
+  { id: "e-gateway-fetch",     source: "gateway",      target: "fetch-order",   sourceHandle: "right",  label: "Order",     style: EDGE_STYLE, labelStyle: LABEL_STYLE, labelBgStyle: LABEL_BG_STYLE },
+  { id: "e-gateway-ticket",    source: "gateway",      target: "create-ticket", sourceHandle: "bottom", label: "Complaint", style: EDGE_STYLE, labelStyle: LABEL_STYLE, labelBgStyle: LABEL_BG_STYLE },
+  { id: "e-fetch-agent",       source: "fetch-order",  target: "agent-action",  style: EDGE_STYLE },
+  { id: "e-agent-resolved",    source: "agent-action", target: "end-resolved",  style: EDGE_STYLE },
+  { id: "e-ticket-escalated",  source: "create-ticket",target: "end-escalated", style: EDGE_STYLE },
+];
+
+// ─── Entity Schemas (Data Fabric) ─────────────────────────────────────────────
+
+export const ENTITY_SCHEMAS: Record<string, {
+  fields: Array<{ name: string; type: string }>;
+  mockRecords: Array<{ id: string; label: string }>;
+}> = {
+  CustomerData: {
+    fields: [
+      { name: "customerId", type: "String" },
+      { name: "email",      type: "String" },
+      { name: "createdAt",  type: "DateTime" },
+    ],
+    mockRecords: [
+      { id: "rec-c1", label: "Alice Johnson (cust-001)" },
+      { id: "rec-c2", label: "Bob Smith (cust-002)" },
+      { id: "rec-c3", label: "Carol White (cust-003)" },
+    ],
+  },
+  OrderData: {
+    fields: [
+      { name: "orderId", type: "String" },
+      { name: "amount",  type: "Double" },
+      { name: "status",  type: "String" },
+    ],
+    mockRecords: [
+      { id: "rec-o1", label: "Order #1001 — $250.00" },
+      { id: "rec-o2", label: "Order #1002 — $89.99" },
+    ],
+  },
+  ProductData: {
+    fields: [
+      { name: "productId", type: "String" },
+      { name: "name",      type: "String" },
+      { name: "price",     type: "Double" },
+    ],
+    mockRecords: [
+      { id: "rec-p1", label: "Laptop Stand (prod-101)" },
+      { id: "rec-p2", label: "USB-C Hub (prod-102)" },
+    ],
+  },
+};
+
 // ─── Solution ─────────────────────────────────────────────────────────────────
 
 export const MOCK_SOLUTION: Solution = {

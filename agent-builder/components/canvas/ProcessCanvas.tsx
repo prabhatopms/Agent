@@ -2,8 +2,6 @@
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ProcessCanvas — Agentic Process BPMN designer view.
-// Ported from uipath-studio/components/canvas/BpmnCanvas.tsx and adapted to
-// use agent-builder's Zustand store (useSolutionStore) and design tokens.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import ReactFlow, {
@@ -11,15 +9,17 @@ import ReactFlow, {
   Controls,
   BackgroundVariant,
   Node,
-  Edge,
   NodeTypes,
   ReactFlowProvider,
   useReactFlow,
+  useNodesState,
+  useEdgesState,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { ZoomIn, ZoomOut, Maximize2, Undo2, Redo2, Download, Upload } from "lucide-react";
 import { StartEventNode, EndEventNode, ServiceTaskNode, UserTaskNode, GatewayNode } from "./nodes/BpmnNodes";
 import { AgentActionNode } from "./nodes/AgentActionNode";
+import { useSolutionStore } from "@/state/solutionStore";
 
 const NODE_TYPES: NodeTypes = {
   startEvent: StartEventNode,
@@ -29,92 +29,6 @@ const NODE_TYPES: NodeTypes = {
   gateway: GatewayNode,
   agentAction: AgentActionNode,
 };
-
-// ─── Default diagram ──────────────────────────────────────────────────────────
-// Matches real UiPath agentic process pattern:
-// Start → Classify Intent → Intent? gateway
-//   → Order path:     Fetch Order Details → [Agent Action: Customer Support Agent] → End: Resolved
-//   → Complaint path: Create Ticket → End: Escalated
-const INITIAL_NODES: Node[] = [
-  {
-    id: "start",
-    type: "startEvent",
-    position: { x: 60, y: 200 },
-    data: { label: "Start" },
-  },
-  {
-    id: "classify",
-    type: "serviceTask",
-    position: { x: 160, y: 180 },
-    data: { label: "Classify Intent" },
-  },
-  {
-    id: "gateway",
-    type: "gateway",
-    position: { x: 370, y: 186 },
-    data: { label: "Intent?" },
-  },
-  {
-    id: "fetch-order",
-    type: "serviceTask",
-    position: { x: 490, y: 100 },
-    data: { label: "Fetch Order Details" },
-  },
-  {
-    id: "agent-action",
-    type: "agentAction",
-    position: { x: 700, y: 90 },
-    data: { agentName: "Customer Support Agent" },
-  },
-  {
-    id: "create-ticket",
-    type: "serviceTask",
-    position: { x: 490, y: 270 },
-    data: { label: "Create Ticket" },
-  },
-  {
-    id: "end-resolved",
-    type: "endEvent",
-    position: { x: 990, y: 113 },
-    data: { label: "Resolved", variant: "green" },
-  },
-  {
-    id: "end-escalated",
-    type: "endEvent",
-    position: { x: 700, y: 283 },
-    data: { label: "Escalated", variant: "red" },
-  },
-];
-
-const EDGE_STYLE = { stroke: "#A4B1B8", strokeWidth: 1.5 };
-const LABEL_STYLE = { fontFamily: "'Noto Sans', system-ui, sans-serif", fontSize: 11, fill: "#526069" };
-const LABEL_BG_STYLE = { fill: "#F4F5F7" };
-
-const INITIAL_EDGES: Edge[] = [
-  { id: "e-start-classify",    source: "start",       target: "classify",      style: EDGE_STYLE },
-  { id: "e-classify-gateway",  source: "classify",    target: "gateway",       style: EDGE_STYLE },
-  {
-    id: "e-gateway-fetch",
-    source: "gateway", sourceHandle: "right",
-    target: "fetch-order",
-    label: "Order",
-    style: EDGE_STYLE,
-    labelStyle: LABEL_STYLE,
-    labelBgStyle: LABEL_BG_STYLE,
-  },
-  {
-    id: "e-gateway-ticket",
-    source: "gateway", sourceHandle: "bottom",
-    target: "create-ticket",
-    label: "Complaint",
-    style: EDGE_STYLE,
-    labelStyle: LABEL_STYLE,
-    labelBgStyle: LABEL_BG_STYLE,
-  },
-  { id: "e-fetch-agent",     source: "fetch-order",   target: "agent-action",  style: EDGE_STYLE },
-  { id: "e-agent-resolved",  source: "agent-action",  target: "end-resolved",  style: EDGE_STYLE },
-  { id: "e-ticket-escalated", source: "create-ticket", target: "end-escalated", style: EDGE_STYLE },
-];
 
 // ─── Toolbar ──────────────────────────────────────────────────────────────────
 function ProcessToolbar() {
@@ -197,17 +111,39 @@ function ProcessToolbar() {
 
 // ─── Inner canvas (needs ReactFlowProvider context) ────────────────────────────
 function ProcessCanvasInner() {
+  const storeNodes = useSolutionStore((s) => s.processCanvasNodes);
+  const storeEdges = useSolutionStore((s) => s.processCanvasEdges);
+  const updateProcessCanvasNodes = useSolutionStore((s) => s.updateProcessCanvasNodes);
+  const updateProcessCanvasEdges = useSolutionStore((s) => s.updateProcessCanvasEdges);
+  const selectProcessNode = useSolutionStore((s) => s.selectProcessNode);
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(storeNodes);
+  const [edges, , onEdgesChange] = useEdgesState(storeEdges);
+
+  const handleNodesChange = (changes: Parameters<typeof onNodesChange>[0]) => {
+    onNodesChange(changes);
+    setNodes((nds) => {
+      updateProcessCanvasNodes(nds);
+      return nds;
+    });
+  };
+
+  const handleNodeClick = (_event: React.MouseEvent, node: Node) => {
+    selectProcessNode(node.id, node.type ?? "");
+  };
+
   return (
     <div style={{ width: "100%", height: "100%", position: "relative", background: "#F4F5F7" }}>
       <ReactFlow
-        nodes={INITIAL_NODES}
-        edges={INITIAL_EDGES}
+        nodes={nodes}
+        edges={edges}
         nodeTypes={NODE_TYPES}
         fitView
         fitViewOptions={{ padding: 0.25 }}
         proOptions={{ hideAttribution: true }}
-        onNodesChange={() => {}}
-        onEdgesChange={() => {}}
+        onNodesChange={handleNodesChange}
+        onEdgesChange={onEdgesChange}
+        onNodeClick={handleNodeClick}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#CFD8DD" />
         <Controls

@@ -1,16 +1,16 @@
 "use client";
 
-import { Search, User, Link } from "lucide-react";
-import { useState } from "react";
+import { PanelRight, Terminal } from "lucide-react";
+import { useSolutionStore } from "@/state/solutionStore";
 
 const ICONS = [
-  { id: "search", icon: Search, title: "Search" },
-  { id: "user", icon: User, title: "User" },
-  { id: "link", icon: Link, title: "Link" },
-] as const;
+  { id: "properties" as const, icon: PanelRight, title: "Properties" },
+  { id: "output"     as const, icon: Terminal,   title: "Output"     },
+];
 
 export function RightIconRail() {
-  const [active, setActive] = useState<string>("search");
+  const rightPanelView    = useSolutionStore((s) => s.rightPanelView);
+  const setRightPanelView = useSolutionStore((s) => s.setRightPanelView);
 
   return (
     <div
@@ -28,11 +28,11 @@ export function RightIconRail() {
       }}
     >
       {ICONS.map(({ id, icon: Icon, title }) => {
-        const isActive = active === id;
+        const isActive = rightPanelView === id;
         return (
           <button
             key={id}
-            onClick={() => setActive(id)}
+            onClick={() => setRightPanelView(id)}
             title={title}
             style={{
               width: 32,
