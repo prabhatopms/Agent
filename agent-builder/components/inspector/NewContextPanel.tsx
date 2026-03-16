@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Search, Plus, ArrowLeft, Globe, Folder, X, Pencil, Check } from "lucide-react";
 import { useSolutionStore } from "@/state/solutionStore";
 
@@ -1152,13 +1152,21 @@ export function NewContextPanel() {
 
   const [step, setStep] = useState<PanelStep>("method");
   const [method, setMethod] = useState<ContextMethod | null>(null);
+  // When navigating to an existing entity node, skip the configured view and go straight to edit
+  const openEditOnNavRef = useRef(false);
 
   const node = canvasNodes.find((n) => n.id === selectedNodeId);
   const isConfigured = Boolean(node?.data?.configured);
 
   useEffect(() => {
-    setStep("method");
-    setMethod(null);
+    if (openEditOnNavRef.current) {
+      setStep("select");
+      setMethod("entity");
+      openEditOnNavRef.current = false;
+    } else {
+      setStep("method");
+      setMethod(null);
+    }
   }, [selectedNodeId]);
 
   const handleMethodSelect = (m: ContextMethod) => {
@@ -1167,7 +1175,9 @@ export function NewContextPanel() {
         (n) => n.id !== selectedNodeId && n.data?.configured && n.data?.contextType === "entity"
       );
       if (existing) {
+        // Delete the empty new node, navigate to existing entity node, and open it in edit mode
         if (selectedNodeId) deleteCanvasNode(selectedNodeId);
+        openEditOnNavRef.current = true;
         selectCanvasNode(existing.id);
         return;
       }
@@ -1181,7 +1191,18 @@ export function NewContextPanel() {
     const firstItem = method === "entity"
       ? ENTITY_ALL_FLAT.find((e) => e.id === itemIds[0])
       : [...INDEX_IN_SOLUTION, ...INDEX_AVAILABLE].find((e) => e.id === itemIds[0]);
-    const label = firstItem?.name ?? "Context";
+    let label = firstItem?.name ?? "Context";
+    // For index: auto-increment label if a node with the same name already exists
+    if (method === "index") {
+      const existingLabels = canvasNodes
+        .filter((n) => n.id !== selectedNodeId)
+        .map((n) => n.data?.label as string);
+      if (existingLabels.includes(label)) {
+        let counter = 2;
+        while (existingLabels.includes(`${label} ${counter}`)) counter++;
+        label = `${label} ${counter}`;
+      }
+    }
     configureContextNode(selectedNodeId, method, itemIds, label);
     setStep("method");
   };
