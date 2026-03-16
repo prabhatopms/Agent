@@ -108,6 +108,40 @@ export interface CanvasGraph {
   edges: Edge[];
 }
 
+// ─── Data Manager Types ───────────────────────────────────────────────────────
+
+export type VariableType =
+  | "String"
+  | "Int32"
+  | "Boolean"
+  | "DateTime"
+  | "Double"
+  | "Object"
+  | "Array";
+
+export type ArgumentDirection = "In" | "Out" | "InOut";
+
+export interface ProcessVariable {
+  id: string;
+  name: string;
+  type: VariableType;
+  defaultValue?: string;
+}
+
+export interface ProcessArgument {
+  id: string;
+  name: string;
+  type: VariableType;
+  direction: ArgumentDirection;
+  defaultValue?: string;
+}
+
+export interface EntityVariable {
+  id: string;
+  name: string;
+  entityType: string; // references a Data Fabric entity schema
+}
+
 export interface Solution {
   id: string;
   name: string;
@@ -168,6 +202,11 @@ export interface SolutionState {
   // Canvas mode — "agent" = agent definition canvas, "process" = agentic process BPMN canvas
   canvasMode: "agent" | "process";
 
+  // Data Manager — process-level variables, arguments, entity variables
+  processVariables: ProcessVariable[];
+  processArguments: ProcessArgument[];
+  entityVariables: EntityVariable[];
+
   // Execution trail
   trailPanelOpen: boolean;
   agentTrace: TraceNode | null;
@@ -223,6 +262,16 @@ export interface SolutionState {
   // Canvas mode
   setCanvasMode: (mode: "agent" | "process") => void;
 
+  // Data Manager actions
+  addProcessVariable: (v: Omit<ProcessVariable, "id">) => void;
+  updateProcessVariable: (id: string, patch: Partial<Omit<ProcessVariable, "id">>) => void;
+  deleteProcessVariable: (id: string) => void;
+  addProcessArgument: (a: Omit<ProcessArgument, "id">) => void;
+  updateProcessArgument: (id: string, patch: Partial<Omit<ProcessArgument, "id">>) => void;
+  deleteProcessArgument: (id: string) => void;
+  addEntityVariable: (ev: Omit<EntityVariable, "id">) => void;
+  deleteEntityVariable: (id: string) => void;
+
   // Execution trail
   runEvaluation: () => void;
   selectTrailNode: (id: string) => void;
@@ -265,6 +314,17 @@ export const useSolutionStore = create<SolutionState>()(
     traceHistory: [],
     historyBadgeCount: 0,
     canvasMode: "agent",
+    processVariables: [
+      { id: "pv-1", name: "applicationDate", type: "DateTime" },
+      { id: "pv-2", name: "email",           type: "String" },
+      { id: "pv-3", name: "errorFirstName",  type: "String" },
+      { id: "pv-4", name: "errorLastName",   type: "String" },
+    ],
+    processArguments: [],
+    entityVariables: [
+      { id: "ev-1", name: "CustomerDataSet1", entityType: "CustomerData" },
+      { id: "ev-2", name: "CustomerDataSet2", entityType: "CustomerData" },
+    ],
 
     // ── Lifecycle ──────────────────────────────────────────────────────────────
 
@@ -570,6 +630,51 @@ export const useSolutionStore = create<SolutionState>()(
 
     setCanvasMode: (mode) => {
       set((s) => { s.canvasMode = mode; });
+    },
+
+    // ── Data Manager ───────────────────────────────────────────────────────────
+
+    addProcessVariable: (v) => {
+      set((s) => {
+        s.processVariables.push({ id: `pv-${Date.now()}`, ...v });
+      });
+    },
+    updateProcessVariable: (id, patch) => {
+      set((s) => {
+        const i = s.processVariables.findIndex((v) => v.id === id);
+        if (i !== -1) Object.assign(s.processVariables[i], patch);
+      });
+    },
+    deleteProcessVariable: (id) => {
+      set((s) => {
+        s.processVariables = s.processVariables.filter((v) => v.id !== id);
+      });
+    },
+    addProcessArgument: (a) => {
+      set((s) => {
+        s.processArguments.push({ id: `pa-${Date.now()}`, ...a });
+      });
+    },
+    updateProcessArgument: (id, patch) => {
+      set((s) => {
+        const i = s.processArguments.findIndex((a) => a.id === id);
+        if (i !== -1) Object.assign(s.processArguments[i], patch);
+      });
+    },
+    deleteProcessArgument: (id) => {
+      set((s) => {
+        s.processArguments = s.processArguments.filter((a) => a.id !== id);
+      });
+    },
+    addEntityVariable: (ev) => {
+      set((s) => {
+        s.entityVariables.push({ id: `ev-${Date.now()}`, ...ev });
+      });
+    },
+    deleteEntityVariable: (id) => {
+      set((s) => {
+        s.entityVariables = s.entityVariables.filter((ev) => ev.id !== id);
+      });
     },
 
     // ── Execution trail ────────────────────────────────────────────────────────

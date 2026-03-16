@@ -5,6 +5,7 @@ import { ExplorerPanel } from "@/components/explorer/ExplorerPanel";
 import { AgentCanvas } from "@/components/canvas/AgentCanvas";
 import { ProcessCanvas } from "@/components/canvas/ProcessCanvas";
 import { InspectorPanel } from "@/components/inspector/InspectorPanel";
+import { DataManagerPanel } from "@/components/process/DataManagerPanel";
 import { useSolutionStore } from "@/state/solutionStore";
 import { LeftIconRail } from "./LeftIconRail";
 import { RightIconRail } from "./RightIconRail";
@@ -112,7 +113,7 @@ export function ResizablePanels() {
             overflow: "hidden",
           }}
         >
-          <ExplorerPanel />
+          {canvasMode === "process" ? <DataManagerPanel /> : <ExplorerPanel />}
         </div>
 
         <DragHandle onDelta={onLeftDelta} />
