@@ -202,6 +202,9 @@ export interface SolutionState {
   // Canvas mode — "agent" = agent definition canvas, "process" = agentic process BPMN canvas
   canvasMode: "agent" | "process";
 
+  // Left panel view — which panel the left icon rail has activated
+  leftPanelView: "explorer" | "datamanager";
+
   // Data Manager — process-level variables, arguments, entity variables
   processVariables: ProcessVariable[];
   processArguments: ProcessArgument[];
@@ -262,6 +265,9 @@ export interface SolutionState {
   // Canvas mode
   setCanvasMode: (mode: "agent" | "process") => void;
 
+  // Left panel
+  setLeftPanelView: (view: "explorer" | "datamanager") => void;
+
   // Data Manager actions
   addProcessVariable: (v: Omit<ProcessVariable, "id">) => void;
   updateProcessVariable: (id: string, patch: Partial<Omit<ProcessVariable, "id">>) => void;
@@ -314,6 +320,7 @@ export const useSolutionStore = create<SolutionState>()(
     traceHistory: [],
     historyBadgeCount: 0,
     canvasMode: "agent",
+    leftPanelView: "explorer",
     processVariables: [
       { id: "pv-1", name: "applicationDate", type: "DateTime" },
       { id: "pv-2", name: "email",           type: "String" },
@@ -630,6 +637,10 @@ export const useSolutionStore = create<SolutionState>()(
 
     setCanvasMode: (mode) => {
       set((s) => { s.canvasMode = mode; });
+    },
+
+    setLeftPanelView: (view) => {
+      set((s) => { s.leftPanelView = view; });
     },
 
     // ── Data Manager ───────────────────────────────────────────────────────────

@@ -71,6 +71,7 @@ export function ResizablePanels() {
   const [explorerW, setExplorerW] = useState(280);
   const [inspectorW, setInspectorW] = useState(320);
   const canvasMode = useSolutionStore((s) => s.canvasMode);
+  const leftPanelView = useSolutionStore((s) => s.leftPanelView);
 
   const onLeftDelta = useCallback((delta: number) => {
     setExplorerW((w) =>
@@ -113,7 +114,7 @@ export function ResizablePanels() {
             overflow: "hidden",
           }}
         >
-          {canvasMode === "process" ? <DataManagerPanel /> : <ExplorerPanel />}
+          {leftPanelView === "datamanager" ? <DataManagerPanel /> : <ExplorerPanel />}
         </div>
 
         <DragHandle onDelta={onLeftDelta} />
