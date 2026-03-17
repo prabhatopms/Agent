@@ -1,10 +1,11 @@
 "use client";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DataManagerPanel — Variables, Arguments, and Entity variables for the
-// agentic process. Entity variables are "Entity reference" typed — they point
-// to an external Data Fabric entity table with optional record-selection
-// criteria (matching UiPath Studio Web's "Add variable" dialog).
+// DataManagerPanel — file-dependent: shows different sections based on which
+// canvas is active (agent definition vs agentic process).
+//
+//  canvasMode === "agent"   → Variables · Inputs · Outputs  (agent I/O schema)
+//  canvasMode === "process" → Variables · Arguments · Entity variables
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState } from "react";
@@ -25,12 +26,16 @@ import {
   ExternalLink,
   AtSign,
   SlidersHorizontal,
+  ArrowRight,
+  ArrowLeft,
+  ArrowLeftRight,
 } from "lucide-react";
 import {
   useSolutionStore,
   type ProcessVariable,
   type ProcessArgument,
   type EntityVariable,
+  type SchemaField,
   type VariableType,
   type ArgumentDirection,
 } from "@/state/solutionStore";
@@ -55,6 +60,13 @@ const T = {
 const SCALAR_TYPES: VariableType[] = [
   "String", "Int32", "Boolean", "DateTime", "Double", "Object", "Array",
 ];
+// Agent schema uses friendly type names matching UiPath Studio Web
+const AGENT_FIELD_TYPES = ["Text", "Number", "Boolean", "Object", "Array", "Any"] as const;
+const AGENT_FIELD_TYPE_MAP: Record<string, string> = {
+  string: "Text", number: "Number", boolean: "Boolean",
+  object: "Object", array: "Array", any: "Any",
+};
+
 const ENTITY_TYPES = Object.keys(ENTITY_SCHEMAS);
 const ARGUMENT_DIRECTIONS: ArgumentDirection[] = ["In", "Out", "InOut"];
 
@@ -72,7 +84,6 @@ function TypeIcon({ type, size = 13 }: { type: VariableType; size?: number }) {
   }
 }
 
-// Diamond + ExternalLink badge for entity variables
 function EntityIcon() {
   return (
     <div style={{ position: "relative", width: 16, height: 16, flexShrink: 0 }}>
@@ -110,21 +121,323 @@ function IconBtn({ icon: Icon, onClick, title, color = T.muted }: {
   );
 }
 
-// ─── Shared inline input style ─────────────────────────────────────────────────
-const inputStyle = (flex = true): React.CSSProperties => ({
-  ...(flex ? { flex: 1 } : {}),
-  height: 26, border: `1px solid ${T.border}`, borderRadius: 3,
+const inputStyle: React.CSSProperties = {
+  flex: 1, height: 26, border: `1px solid ${T.border}`, borderRadius: 3,
   padding: "0 8px", fontFamily: T.font, fontSize: 12, color: T.foreground, outline: "none",
-});
+  background: "#FFFFFF", width: "100%", boxSizing: "border-box",
+};
 
-const selectStyle = (width?: number): React.CSSProperties => ({
-  ...(width ? { width } : { flex: 1 }),
+const selectStyle: React.CSSProperties = {
   height: 26, border: `1px solid ${T.border}`, borderRadius: 3,
   padding: "0 6px", fontFamily: T.font, fontSize: 12, color: T.foreground,
-  background: "#FFFFFF", cursor: "pointer",
-});
+  background: "#FFFFFF", cursor: "pointer", width: "100%",
+};
 
-// ─── Add Variable form — supports scalar types and "Entity reference" ─────────
+const labelStyle: React.CSSProperties = {
+  fontFamily: T.font, fontSize: 11, color: T.muted, marginBottom: 3, display: "block",
+};
+
+// ─── Reusable "default value" input with @ and filter icons ───────────────────
+function DefaultValueInput({ value, onChange, placeholder = "Enter text" }: {
+  value: string; onChange: (v: string) => void; placeholder?: string;
+}) {
+  return (
+    <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={{ ...inputStyle, paddingRight: 48 }}
+      />
+      <div style={{ position: "absolute", right: 4, display: "flex", gap: 2 }}>
+        <button title="Insert variable reference" onClick={() => onChange(value + "@")}
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, border: "none", background: "none", cursor: "pointer", borderRadius: 2, color: T.muted }}>
+          <AtSign width={11} height={11} />
+        </button>
+        <button title="Advanced options"
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, border: "none", background: "none", cursor: "pointer", borderRadius: 2, color: T.muted }}>
+          <SlidersHorizontal width={11} height={11} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Section ──────────────────────────────────────────────────────────────────
+function Section({ label, count, children, onAdd, addTitle }: {
+  label: string; count: number; children: React.ReactNode; onAdd: () => void; addTitle?: string;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  const [hovered, setHovered]   = useState(false);
+
+  return (
+    <div style={{ borderBottom: `1px solid ${T.border}` }}>
+      <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+        style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 10px", height: 30, background: T.sectionBg, cursor: "pointer" }}
+      >
+        <button onClick={() => setExpanded((v) => !v)} style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+          <ChevronRight style={{ width: 12, height: 12, color: T.muted, transition: "transform 0.15s", transform: expanded ? "rotate(90deg)" : "rotate(0deg)", flexShrink: 0 }} />
+          <VarGroupIcon />
+          <span style={{ fontFamily: T.font, fontSize: 12, fontWeight: 600, color: T.foreground }}>{label}</span>
+          <span style={{ fontFamily: T.font, fontSize: 11, color: T.deemphasized }}>{count > 0 ? `(${count})` : ""}</span>
+        </button>
+        {hovered && (
+          <button onClick={(e) => { e.stopPropagation(); onAdd(); }} title={addTitle ?? `Add ${label.toLowerCase().replace(/s$/, "")}`}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, border: "none", background: "none", cursor: "pointer", borderRadius: 3, color: T.muted, flexShrink: 0 }}>
+            <Plus width={11} height={11} />
+          </button>
+        )}
+      </div>
+      {expanded && children}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AGENT CANVAS VIEW — Variables · Inputs · Outputs
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Inline expanded form for adding/editing a schema field (matches screenshot)
+function SchemaFieldForm({
+  direction,
+  onSave,
+  onCancel,
+  initial,
+}: {
+  direction: "input" | "output";
+  onSave: (field: SchemaField) => void;
+  onCancel: () => void;
+  initial?: SchemaField;
+}) {
+  const [name, setName]           = useState(initial?.name ?? "");
+  const [type, setType]           = useState(initial?.type ?? "Text");
+  const [defaultValue, setDV]     = useState(initial?.defaultValue ?? "");
+  const [description, setDesc]    = useState(initial?.description ?? "");
+  const [required, setRequired]   = useState(initial?.required ?? false);
+
+  const handleSave = () => {
+    if (!name.trim()) return;
+    onSave({ name: name.trim(), type, defaultValue: defaultValue || undefined, description, required });
+  };
+
+  const dirLabel = direction === "input" ? "In" : "Out";
+
+  return (
+    <div style={{ padding: "8px 10px 10px", background: T.selectedBg, borderBottom: `1px solid ${T.border}` }}>
+      {/* Name */}
+      <input
+        autoFocus placeholder="Field name" value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => e.key === "Escape" && onCancel()}
+        style={{ ...inputStyle, marginBottom: 8 }}
+      />
+
+      {/* Direction row (readonly label) */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+        <div style={{ flex: 1 }}>
+          <label style={labelStyle}>Direction<span style={{ color: "#D52B1E" }}>*</span></label>
+          <div style={{ ...selectStyle, display: "flex", alignItems: "center", gap: 5, background: T.sectionBg, color: T.muted, cursor: "default", paddingLeft: 8 }}>
+            {direction === "input"
+              ? <><ArrowRight width={12} height={12} color={T.primary} /><span style={{ fontFamily: T.font, fontSize: 12, color: T.foreground }}>In</span></>
+              : <><ArrowLeft  width={12} height={12} color="#22C55E"   /><span style={{ fontFamily: T.font, fontSize: 12, color: T.foreground }}>Out</span></>
+            }
+          </div>
+        </div>
+        <div style={{ flex: 1 }}>
+          <label style={labelStyle}>Type<span style={{ color: "#D52B1E" }}>*</span></label>
+          <select value={type} onChange={(e) => setType(e.target.value)} style={selectStyle}>
+            {AGENT_FIELD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Default value */}
+      <div style={{ marginBottom: 6 }}>
+        <label style={labelStyle}>Default value</label>
+        <DefaultValueInput value={defaultValue} onChange={setDV} />
+      </div>
+
+      {/* Description */}
+      <div style={{ marginBottom: 6 }}>
+        <label style={labelStyle}>Description</label>
+        <textarea
+          value={description} onChange={(e) => setDesc(e.target.value)} rows={2}
+          style={{ width: "100%", border: `1px solid ${T.border}`, borderRadius: 3, padding: "5px 8px", fontFamily: T.font, fontSize: 12, color: T.foreground, background: "#FFFFFF", outline: "none", resize: "none", boxSizing: "border-box" }}
+        />
+      </div>
+
+      {/* Required */}
+      <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontFamily: T.font, fontSize: 12, color: T.foreground, marginBottom: 8 }}>
+        <input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} style={{ accentColor: T.primary }} />
+        Required
+      </label>
+
+      {/* Actions */}
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+        <button onClick={onCancel} style={{ height: 26, padding: "0 12px", border: `1px solid ${T.border}`, borderRadius: 4, background: "#FFFFFF", fontFamily: T.font, fontSize: 12, color: T.foreground, cursor: "pointer" }}>
+          Cancel
+        </button>
+        <button onClick={handleSave} disabled={!name.trim()} style={{ height: 26, padding: "0 12px", border: "none", borderRadius: 4, background: name.trim() ? T.primary : T.border, fontFamily: T.font, fontSize: 12, color: "#FFFFFF", cursor: name.trim() ? "pointer" : "default" }}>
+          Save
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Schema field display row
+function SchemaFieldRow({
+  field,
+  direction,
+  agentId,
+}: {
+  field: SchemaField;
+  direction: "input" | "output";
+  agentId: string;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const deleteAgentSchemaField = useSolutionStore((s) => s.deleteAgentSchemaField);
+  const updateAgentSchemaField = useSolutionStore((s) => s.updateAgentSchemaField);
+
+  const displayType = AGENT_FIELD_TYPE_MAP[field.type.toLowerCase()] ?? field.type;
+
+  if (editing) {
+    return (
+      <SchemaFieldForm
+        direction={direction}
+        initial={field}
+        onSave={(updated) => {
+          updateAgentSchemaField(agentId, direction, field.name, updated);
+          setEditing(false);
+        }}
+        onCancel={() => setEditing(false)}
+      />
+    );
+  }
+
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+      onDoubleClick={() => setEditing(true)}
+      style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 10px 0 28px", height: 28, background: hovered ? T.hoverBg : T.bg, cursor: "default" }}
+    >
+      {/* Direction arrow */}
+      {direction === "input"
+        ? <ArrowRight width={12} height={12} color={T.primary} style={{ flexShrink: 0 }} />
+        : <ArrowLeft  width={12} height={12} color="#22C55E"   style={{ flexShrink: 0 }} />
+      }
+      <span style={{ flex: 1, fontFamily: T.font, fontSize: 13, color: T.foreground, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {field.name}
+      </span>
+      {field.required && (
+        <span style={{ fontFamily: T.font, fontSize: 10, color: "#D52B1E", flexShrink: 0 }}>*</span>
+      )}
+      <span style={{ fontFamily: T.font, fontSize: 11, color: T.deemphasized, flexShrink: 0 }}>{displayType}</span>
+      {hovered && (
+        <IconBtn icon={Trash2} onClick={(e) => { e.stopPropagation(); deleteAgentSchemaField(agentId, direction, field.name); }} title="Delete" color="#D52B1E" />
+      )}
+    </div>
+  );
+}
+
+// Agent canvas Data Manager
+function AgentDataManagerPanel() {
+  const selectedAgentId = useSolutionStore((s) => s.selectedAgentId);
+  const agent = useSolutionStore((s) => s.solution.agents.find((a) => a.id === s.selectedAgentId) ?? null);
+  const addAgentSchemaField = useSolutionStore((s) => s.addAgentSchemaField);
+
+  const [addingInput, setAddingInput]   = useState(false);
+  const [addingOutput, setAddingOutput] = useState(false);
+  const [search, setSearch]             = useState("");
+  const [showSearch, setShowSearch]     = useState(false);
+
+  if (!agent || !selectedAgentId) {
+    return (
+      <div style={{ padding: 16, fontFamily: T.font, fontSize: 12, color: T.deemphasized }}>
+        Select an agent node to view its data.
+      </div>
+    );
+  }
+
+  const q = search.toLowerCase();
+  const filteredInputs  = q ? agent.schema.input.filter((f)  => f.name.toLowerCase().includes(q)) : agent.schema.input;
+  const filteredOutputs = q ? agent.schema.output.filter((f) => f.name.toLowerCase().includes(q)) : agent.schema.output;
+
+  return (
+    <>
+      {/* Header */}
+      <div style={{ height: 36, display: "flex", alignItems: "center", gap: 8, padding: "0 12px", borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
+        <span style={{ flex: 1, fontFamily: T.font, fontSize: 13, fontWeight: 600, color: T.foreground }}>Data manager</span>
+        <button title="Add input" onClick={() => { setAddingInput(true); setAddingOutput(false); }}
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, border: "none", background: "none", cursor: "pointer", borderRadius: 4, color: T.muted }}>
+          <Plus width={14} height={14} />
+        </button>
+        <button title="Search" onClick={() => setShowSearch((v) => !v)}
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, border: "none", background: "none", cursor: "pointer", borderRadius: 4, color: showSearch ? T.primary : T.muted }}>
+          <Search width={13} height={13} />
+        </button>
+      </div>
+
+      {showSearch && (
+        <div style={{ padding: "6px 10px", borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, background: T.sectionBg, border: `1px solid ${T.border}`, borderRadius: 4, padding: "0 8px", height: 26 }}>
+            <Search width={12} height={12} color={T.muted} />
+            <input autoFocus placeholder="Search fields…" value={search} onChange={(e) => setSearch(e.target.value)}
+              style={{ flex: 1, border: "none", background: "none", fontFamily: T.font, fontSize: 12, color: T.foreground, outline: "none" }} />
+            {search && <button onClick={() => setSearch("")} style={{ border: "none", background: "none", cursor: "pointer", padding: 0, color: T.muted, display: "flex" }}><X width={11} height={11} /></button>}
+          </div>
+        </div>
+      )}
+
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        {/* Variables — placeholder, agents don't have local vars yet */}
+        <Section label="Variables" count={0} onAdd={() => {}} addTitle="Add variable">
+          <div style={{ padding: "8px 28px", fontFamily: T.font, fontSize: 12, color: T.deemphasized }}>No variables defined</div>
+        </Section>
+
+        {/* Inputs */}
+        <Section label="Inputs" count={filteredInputs.length} onAdd={() => { setAddingInput(true); setAddingOutput(false); }} addTitle="Add input">
+          {addingInput && (
+            <SchemaFieldForm
+              direction="input"
+              onSave={(field) => { addAgentSchemaField(selectedAgentId, "input", field); setAddingInput(false); }}
+              onCancel={() => setAddingInput(false)}
+            />
+          )}
+          {filteredInputs.map((f) => (
+            <SchemaFieldRow key={f.name} field={f} direction="input" agentId={selectedAgentId} />
+          ))}
+          {filteredInputs.length === 0 && !addingInput && (
+            <div style={{ padding: "8px 28px", fontFamily: T.font, fontSize: 12, color: T.deemphasized }}>No inputs defined</div>
+          )}
+        </Section>
+
+        {/* Outputs */}
+        <Section label="Outputs" count={filteredOutputs.length} onAdd={() => { setAddingOutput(true); setAddingInput(false); }} addTitle="Add output">
+          {addingOutput && (
+            <SchemaFieldForm
+              direction="output"
+              onSave={(field) => { addAgentSchemaField(selectedAgentId, "output", field); setAddingOutput(false); }}
+              onCancel={() => setAddingOutput(false)}
+            />
+          )}
+          {filteredOutputs.map((f) => (
+            <SchemaFieldRow key={f.name} field={f} direction="output" agentId={selectedAgentId} />
+          ))}
+          {filteredOutputs.length === 0 && !addingOutput && (
+            <div style={{ padding: "8px 28px", fontFamily: T.font, fontSize: 12, color: T.deemphasized }}>No outputs defined</div>
+          )}
+        </Section>
+      </div>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PROCESS CANVAS VIEW — Variables · Arguments · Entity variables
+// ─────────────────────────────────────────────────────────────────────────────
+
 function AddVariableForm({
   onSaveScalar,
   onSaveEntity,
@@ -134,78 +447,47 @@ function AddVariableForm({
   onSaveEntity: (ev: Omit<EntityVariable, "id">) => void;
   onCancel: () => void;
 }) {
-  const [name, setName]               = useState("");
-  const [selectedType, setSelectedType] = useState<string>("String");
-  const [defaultValue, setDefaultValue] = useState("");
-
-  // Entity-specific state
-  const [entitySearch, setEntitySearch]       = useState("");
-  const [entityType, setEntityType]           = useState<string>("");
-  const [recordMode, setRecordMode]           = useState<"single" | "multiple">("single");
-  const [criteriaField, setCriteriaField]     = useState<string>("");
-  const [criteriaValue, setCriteriaValue]     = useState<string>("");
+  const [name, setName]             = useState("");
+  const [selectedType, setType]     = useState<string>("String");
+  const [defaultValue, setDV]       = useState("");
+  const [entitySearch, setEntitySearch] = useState("");
+  const [entityType, setEntityType] = useState<string>("");
+  const [recordMode, setRecordMode] = useState<"single" | "multiple">("single");
+  const [criteriaField, setCriteriaField] = useState<string>("");
+  const [criteriaValue, setCriteriaValue] = useState<string>("");
 
   const isEntity = selectedType === "Entity reference";
-
-  const handleTypeChange = (t: string) => {
-    setSelectedType(t);
-    setDefaultValue("");
-    setEntityType("");
-    setEntitySearch("");
-    setRecordMode("single");
-    setCriteriaField("");
-    setCriteriaValue("");
-  };
-
-  // Filter entity type suggestions
+  const schema   = isEntity && entityType ? ENTITY_SCHEMAS[entityType] : null;
   const entitySuggestions = entitySearch
     ? ENTITY_TYPES.filter((t) => t.toLowerCase().includes(entitySearch.toLowerCase()))
     : ENTITY_TYPES;
 
-  const selectedEntitySchema = entityType ? ENTITY_SCHEMAS[entityType] : null;
+  const handleTypeChange = (t: string) => {
+    setType(t); setDV(""); setEntityType(""); setEntitySearch("");
+    setRecordMode("single"); setCriteriaField(""); setCriteriaValue("");
+  };
 
   const handleSave = () => {
     if (!name.trim()) return;
     if (isEntity) {
-      if (!entityType) return; // entity type required
-      onSaveEntity({
-        name: name.trim(),
-        entityType,
-        recordMode,
-        criteriaField: recordMode === "single" ? criteriaField : undefined,
-        criteriaValue: recordMode === "single" ? criteriaValue : undefined,
-      });
+      if (!entityType) return;
+      onSaveEntity({ name: name.trim(), entityType, recordMode, criteriaField: recordMode === "single" ? criteriaField : undefined, criteriaValue: recordMode === "single" ? criteriaValue : undefined });
     } else {
-      onSaveScalar({
-        name: name.trim(),
-        type: selectedType as VariableType,
-        defaultValue: defaultValue || undefined,
-      });
+      onSaveScalar({ name: name.trim(), type: selectedType as VariableType, defaultValue: defaultValue || undefined });
     }
   };
 
   return (
     <div style={{ borderBottom: `1px solid ${T.border}`, background: T.selectedBg }}>
-      {/* Row 1: Name */}
+      {/* Name + Type row */}
       <div style={{ display: "flex", gap: 6, padding: "8px 10px 4px" }}>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
-          <label style={{ fontFamily: T.font, fontSize: 11, color: T.muted }}>Name<span style={{ color: "#D52B1E" }}>*</span></label>
-          <input
-            autoFocus
-            placeholder="Variable name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !isEntity && handleSave()}
-            style={inputStyle()}
-          />
+          <label style={labelStyle}>Name<span style={{ color: "#D52B1E" }}>*</span></label>
+          <input autoFocus placeholder="Variable name" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && !isEntity && handleSave()} style={inputStyle} />
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <label style={{ fontFamily: T.font, fontSize: 11, color: T.muted }}>Type<span style={{ color: "#D52B1E" }}>*</span></label>
-          <select
-            value={selectedType}
-            onChange={(e) => handleTypeChange(e.target.value)}
-            style={selectStyle(152)}
-          >
+          <label style={labelStyle}>Type<span style={{ color: "#D52B1E" }}>*</span></label>
+          <select value={selectedType} onChange={(e) => handleTypeChange(e.target.value)} style={{ ...selectStyle, width: 152 }}>
             <optgroup label="Scalar types">
               {SCALAR_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </optgroup>
@@ -219,148 +501,69 @@ function AddVariableForm({
       {/* Scalar: default value */}
       {!isEntity && (
         <div style={{ padding: "0 10px 8px", display: "flex", gap: 6, alignItems: "center" }}>
-          <input
-            placeholder="Default value (optional)"
-            value={defaultValue}
-            onChange={(e) => setDefaultValue(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSave()}
-            style={inputStyle()}
-          />
+          <DefaultValueInput value={defaultValue} onChange={setDV} />
           <IconBtn icon={Check} onClick={handleSave} title="Save" color={T.primary} />
           <IconBtn icon={X} onClick={onCancel} title="Cancel" />
         </div>
       )}
 
-      {/* Entity reference: additional fields */}
+      {/* Entity reference fields */}
       {isEntity && (
         <>
-          {/* Datafabric entity search */}
           <div style={{ padding: "4px 10px 4px", display: "flex", flexDirection: "column", gap: 2 }}>
-            <label style={{ fontFamily: T.font, fontSize: 11, color: T.muted }}>Select Datafabric entity<span style={{ color: "#D52B1E" }}>*</span></label>
+            <label style={labelStyle}>Select Datafabric entity<span style={{ color: "#D52B1E" }}>*</span></label>
             <div style={{ position: "relative" }}>
-              <input
-                placeholder="Type to search"
-                value={entitySearch}
-                onChange={(e) => {
-                  setEntitySearch(e.target.value);
-                  setEntityType(""); // reset until confirmed
-                }}
-                style={inputStyle()}
-              />
-              {/* Suggestions dropdown */}
+              <input placeholder="Type to search" value={entitySearch} onChange={(e) => { setEntitySearch(e.target.value); setEntityType(""); }} style={inputStyle} />
               {entitySearch && !entityType && entitySuggestions.length > 0 && (
-                <div style={{
-                  position: "absolute", top: "100%", left: 0, right: 0, zIndex: 20,
-                  background: "#FFFFFF", border: `1px solid ${T.border}`, borderRadius: 4,
-                  boxShadow: "0 4px 12px #00000018", maxHeight: 120, overflowY: "auto",
-                }}>
+                <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 20, background: "#FFFFFF", border: `1px solid ${T.border}`, borderRadius: 4, boxShadow: "0 4px 12px #00000018", maxHeight: 120, overflowY: "auto" }}>
                   {entitySuggestions.map((t) => (
                     <button key={t} onClick={() => { setEntityType(t); setEntitySearch(t); setCriteriaField(""); }}
-                      style={{
-                        width: "100%", textAlign: "left", padding: "6px 10px",
-                        border: "none", background: "none", cursor: "pointer",
-                        fontFamily: T.font, fontSize: 12, color: T.foreground,
-                      }}
+                      style={{ width: "100%", textAlign: "left", padding: "6px 10px", border: "none", background: "none", cursor: "pointer", fontFamily: T.font, fontSize: 12, color: T.foreground }}
                       onMouseEnter={(e) => (e.currentTarget.style.background = T.hoverBg)}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
-                    >
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "none")}>
                       {t}
                     </button>
                   ))}
                 </div>
               )}
             </div>
-            {entityType && (
-              <span style={{ fontFamily: T.font, fontSize: 11, color: T.entityPillText }}>
-                {selectedEntitySchema ? `${selectedEntitySchema.fields.length} fields available` : ""}
-              </span>
+            {entityType && schema && (
+              <span style={{ fontFamily: T.font, fontSize: 11, color: T.entityPillText }}>{schema.fields.length} fields available</span>
             )}
           </div>
 
-          {/* Single / Multiple records */}
           <div style={{ padding: "4px 10px 4px", display: "flex", gap: 16 }}>
             {(["single", "multiple"] as const).map((mode) => (
               <label key={mode} style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontFamily: T.font, fontSize: 12, color: T.foreground }}>
-                <input
-                  type="radio"
-                  name="recordMode"
-                  checked={recordMode === mode}
-                  onChange={() => setRecordMode(mode)}
-                  style={{ accentColor: T.primary, cursor: "pointer" }}
-                />
+                <input type="radio" name="recordMode" checked={recordMode === mode} onChange={() => setRecordMode(mode)} style={{ accentColor: T.primary, cursor: "pointer" }} />
                 {mode === "single" ? "Single record" : "Multiple records"}
               </label>
             ))}
           </div>
 
-          {/* Criteria row — only for single record */}
           {recordMode === "single" && (
             <div style={{ padding: "4px 10px 4px" }}>
-              <label style={{ fontFamily: T.font, fontSize: 11, color: T.muted, display: "block", marginBottom: 4 }}>
-                Select a record (using unique field only)
-              </label>
+              <label style={labelStyle}>Select a record (using unique field only)</label>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                {/* Field dropdown */}
-                <select
-                  value={criteriaField}
-                  onChange={(e) => setCriteriaField(e.target.value)}
-                  style={{ ...selectStyle(), flex: "0 0 130px" }}
-                >
+                <select value={criteriaField} onChange={(e) => setCriteriaField(e.target.value)} style={{ ...selectStyle, flex: "0 0 130px" }}>
                   <option value="">Select a field</option>
-                  {selectedEntitySchema?.fields.map((f) => (
-                    <option key={f.name} value={f.name}>{f.name}</option>
-                  ))}
+                  {schema?.fields.map((f) => <option key={f.name} value={f.name}>{f.name}</option>)}
                 </select>
-
                 <span style={{ fontFamily: T.font, fontSize: 12, color: T.muted, flexShrink: 0 }}>Equals</span>
-
-                {/* Value input with @ and filter icons */}
                 <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center" }}>
-                  <input
-                    placeholder="Value or @variable"
-                    value={criteriaValue}
-                    onChange={(e) => setCriteriaValue(e.target.value)}
-                    style={{ ...inputStyle(), paddingRight: 48 }}
-                  />
+                  <input placeholder="Value or @variable" value={criteriaValue} onChange={(e) => setCriteriaValue(e.target.value)} style={{ ...inputStyle, paddingRight: 48 }} />
                   <div style={{ position: "absolute", right: 4, display: "flex", gap: 2 }}>
-                    <button
-                      title="Insert variable reference"
-                      onClick={() => setCriteriaValue((v) => v + "@")}
-                      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, border: "none", background: "none", cursor: "pointer", borderRadius: 2, color: T.muted }}
-                    >
-                      <AtSign width={11} height={11} />
-                    </button>
-                    <button
-                      title="Advanced criteria"
-                      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, border: "none", background: "none", cursor: "pointer", borderRadius: 2, color: T.muted }}
-                    >
-                      <SlidersHorizontal width={11} height={11} />
-                    </button>
+                    <button title="Insert variable" onClick={() => setCriteriaValue((v) => v + "@")} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, border: "none", background: "none", cursor: "pointer", borderRadius: 2, color: T.muted }}><AtSign width={11} height={11} /></button>
+                    <button title="Advanced" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, border: "none", background: "none", cursor: "pointer", borderRadius: 2, color: T.muted }}><SlidersHorizontal width={11} height={11} /></button>
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Save / Cancel */}
           <div style={{ padding: "8px 10px", display: "flex", justifyContent: "flex-end", gap: 6 }}>
-            <button onClick={onCancel} style={{
-              height: 26, padding: "0 12px", border: `1px solid ${T.border}`, borderRadius: 4,
-              background: "#FFFFFF", fontFamily: T.font, fontSize: 12, color: T.foreground, cursor: "pointer",
-            }}>
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={!name.trim() || !entityType}
-              style={{
-                height: 26, padding: "0 12px", border: "none", borderRadius: 4,
-                background: name.trim() && entityType ? T.primary : T.border,
-                fontFamily: T.font, fontSize: 12, color: "#FFFFFF", cursor: name.trim() && entityType ? "pointer" : "default",
-              }}
-            >
-              Save
-            </button>
+            <button onClick={onCancel} style={{ height: 26, padding: "0 12px", border: `1px solid ${T.border}`, borderRadius: 4, background: "#FFFFFF", fontFamily: T.font, fontSize: 12, color: T.foreground, cursor: "pointer" }}>Cancel</button>
+            <button onClick={handleSave} disabled={!name.trim() || !entityType} style={{ height: 26, padding: "0 12px", border: "none", borderRadius: 4, background: name.trim() && entityType ? T.primary : T.border, fontFamily: T.font, fontSize: 12, color: "#FFFFFF", cursor: name.trim() && entityType ? "pointer" : "default" }}>Save</button>
           </div>
         </>
       )}
@@ -368,42 +571,59 @@ function AddVariableForm({
   );
 }
 
-// ─── Add Argument form ────────────────────────────────────────────────────────
-function AddArgumentForm({ onSave, onCancel }: { onSave: (a: Omit<ProcessArgument, "id">) => void; onCancel: () => void }) {
+// Add Argument form — inline, matches screenshot style
+function AddArgumentForm({ onSave, onCancel }: {
+  onSave: (a: Omit<ProcessArgument, "id">) => void; onCancel: () => void;
+}) {
   const [name, setName]           = useState("");
   const [type, setType]           = useState<VariableType>("String");
   const [direction, setDirection] = useState<ArgumentDirection>("In");
+  const [defaultValue, setDV]     = useState("");
+  const [description, setDesc]    = useState("");
 
-  const handleSave = () => {
-    if (!name.trim()) return;
-    onSave({ name: name.trim(), type, direction });
-  };
+  const handleSave = () => { if (!name.trim()) return; onSave({ name: name.trim(), type, direction, defaultValue: defaultValue || undefined }); };
+
+  const dirIcon = direction === "In" ? ArrowRight : direction === "Out" ? ArrowLeft : ArrowLeftRight;
+  const dirColor = direction === "In" ? T.primary : direction === "Out" ? "#22C55E" : "#8B5CF6";
 
   return (
-    <div style={{ padding: "6px 10px", borderBottom: `1px solid ${T.border}`, background: T.selectedBg }}>
-      <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
-        <input
-          autoFocus placeholder="Argument name" value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSave()}
-          style={inputStyle()}
-        />
-        <select value={direction} onChange={(e) => setDirection(e.target.value as ArgumentDirection)} style={selectStyle(80)}>
-          {ARGUMENT_DIRECTIONS.map((d) => <option key={d} value={d}>{d}</option>)}
-        </select>
+    <div style={{ padding: "8px 10px 10px", background: T.selectedBg, borderBottom: `1px solid ${T.border}` }}>
+      <input autoFocus placeholder="Argument name" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Escape" && onCancel()} style={{ ...inputStyle, marginBottom: 8 }} />
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+        <div style={{ flex: 1 }}>
+          <label style={labelStyle}>Direction<span style={{ color: "#D52B1E" }}>*</span></label>
+          <select value={direction} onChange={(e) => setDirection(e.target.value as ArgumentDirection)} style={selectStyle}>
+            {ARGUMENT_DIRECTIONS.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
+        </div>
+        <div style={{ flex: 1 }}>
+          <label style={labelStyle}>Type<span style={{ color: "#D52B1E" }}>*</span></label>
+          <select value={type} onChange={(e) => setType(e.target.value as VariableType)} style={selectStyle}>
+            {SCALAR_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
       </div>
-      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-        <select value={type} onChange={(e) => setType(e.target.value as VariableType)} style={selectStyle()}>
-          {SCALAR_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <IconBtn icon={Check} onClick={handleSave} title="Save" color={T.primary} />
-        <IconBtn icon={X} onClick={onCancel} title="Cancel" />
+
+      <div style={{ marginBottom: 6 }}>
+        <label style={labelStyle}>Default value</label>
+        <DefaultValueInput value={defaultValue} onChange={setDV} />
+      </div>
+
+      <div style={{ marginBottom: 8 }}>
+        <label style={labelStyle}>Description</label>
+        <textarea value={description} onChange={(e) => setDesc(e.target.value)} rows={2}
+          style={{ width: "100%", border: `1px solid ${T.border}`, borderRadius: 3, padding: "5px 8px", fontFamily: T.font, fontSize: 12, color: T.foreground, background: "#FFFFFF", outline: "none", resize: "none", boxSizing: "border-box" }} />
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+        <button onClick={onCancel} style={{ height: 26, padding: "0 12px", border: `1px solid ${T.border}`, borderRadius: 4, background: "#FFFFFF", fontFamily: T.font, fontSize: 12, color: T.foreground, cursor: "pointer" }}>Cancel</button>
+        <button onClick={handleSave} disabled={!name.trim()} style={{ height: 26, padding: "0 12px", border: "none", borderRadius: 4, background: name.trim() ? T.primary : T.border, fontFamily: T.font, fontSize: 12, color: "#FFFFFF", cursor: name.trim() ? "pointer" : "default" }}>Save</button>
       </div>
     </div>
   );
 }
 
-// ─── Scalar variable row ──────────────────────────────────────────────────────
 function VariableRow({ variable }: { variable: ProcessVariable }) {
   const [hovered, setHovered] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -421,13 +641,8 @@ function VariableRow({ variable }: { variable: ProcessVariable }) {
     return (
       <div style={{ padding: "4px 10px", borderBottom: `1px solid ${T.border}`, background: T.selectedBg, display: "flex", gap: 6, alignItems: "center" }}>
         <TypeIcon type={editType} />
-        <input
-          autoFocus value={editName}
-          onChange={(e) => setEditName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") setEditing(false); }}
-          style={{ ...inputStyle(), height: 22 }}
-        />
-        <select value={editType} onChange={(e) => setEditType(e.target.value as VariableType)} style={{ ...selectStyle(100), height: 22, fontSize: 11 }}>
+        <input autoFocus value={editName} onChange={(e) => setEditName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") setEditing(false); }} style={{ ...inputStyle, height: 22, flex: 1 }} />
+        <select value={editType} onChange={(e) => setEditType(e.target.value as VariableType)} style={{ ...selectStyle, width: 100, height: 22, fontSize: 11 }}>
           {SCALAR_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
         <IconBtn icon={Check} onClick={handleSave} title="Save" color={T.primary} />
@@ -437,123 +652,60 @@ function VariableRow({ variable }: { variable: ProcessVariable }) {
   }
 
   return (
-    <div
-      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      onDoubleClick={() => setEditing(true)}
-      style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 10px 0 28px", height: 28, background: hovered ? T.hoverBg : T.bg, cursor: "default" }}
-    >
+    <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onDoubleClick={() => setEditing(true)}
+      style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 10px 0 28px", height: 28, background: hovered ? T.hoverBg : T.bg, cursor: "default" }}>
       <TypeIcon type={variable.type} />
-      <span style={{ flex: 1, fontFamily: T.font, fontSize: 13, color: T.foreground, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {variable.name}
-      </span>
+      <span style={{ flex: 1, fontFamily: T.font, fontSize: 13, color: T.foreground, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{variable.name}</span>
       <span style={{ fontFamily: T.font, fontSize: 11, color: T.deemphasized, flexShrink: 0 }}>{variable.type}</span>
       {hovered && <IconBtn icon={Trash2} onClick={(e) => { e.stopPropagation(); deleteProcessVariable(variable.id); }} title="Delete" color="#D52B1E" />}
     </div>
   );
 }
 
-// ─── Entity variable row ──────────────────────────────────────────────────────
 function EntityVariableRow({ ev }: { ev: EntityVariable }) {
   const [hovered, setHovered] = useState(false);
   const deleteEntityVariable = useSolutionStore((s) => s.deleteEntityVariable);
 
-  const schema = ENTITY_SCHEMAS[ev.entityType];
-  const fieldCount = schema?.fields.length ?? 0;
-
-  const hintParts: string[] = [];
-  if (ev.recordMode === "single" && ev.criteriaField) {
-    hintParts.push(`${ev.criteriaField} = ${ev.criteriaValue || "?"}`);
-  } else if (ev.recordMode === "multiple") {
-    hintParts.push(`all records`);
-  }
-
   return (
-    <div
-      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 10px 0 28px", height: 28, background: hovered ? T.hoverBg : T.bg, cursor: "default" }}
-    >
+    <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+      style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 10px 0 28px", height: 28, background: hovered ? T.hoverBg : T.bg, cursor: "default" }}>
       <EntityIcon />
-      <span style={{ flex: 1, fontFamily: T.font, fontSize: 13, color: T.foreground, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {ev.name}
-      </span>
-      {/* Entity type pill */}
-      <span style={{
-        fontFamily: T.font, fontSize: 10, fontWeight: 600,
-        color: T.entityPillText, background: T.entityPillBg,
-        borderRadius: 4, padding: "1px 5px", flexShrink: 0,
-      }}>
-        {ev.entityType}
-      </span>
-      {/* Record mode / criteria hint */}
+      <span style={{ flex: 1, fontFamily: T.font, fontSize: 13, color: T.foreground, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.name}</span>
+      <span style={{ fontFamily: T.font, fontSize: 10, fontWeight: 600, color: T.entityPillText, background: T.entityPillBg, borderRadius: 4, padding: "1px 5px", flexShrink: 0 }}>{ev.entityType}</span>
       <span style={{ fontFamily: T.font, fontSize: 11, color: T.deemphasized, fontStyle: "italic", flexShrink: 0, maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {hintParts.length > 0 ? `· ${hintParts[0]}` : ev.recordMode === "single" ? "· 1 record" : "· all records"}
+        {ev.recordMode === "single" && ev.criteriaField ? `· ${ev.criteriaField} = ${ev.criteriaValue || "?"}` : ev.recordMode === "multiple" ? "· all records" : "· 1 record"}
       </span>
       {hovered && <IconBtn icon={Trash2} onClick={(e) => { e.stopPropagation(); deleteEntityVariable(ev.id); }} title="Delete" color="#D52B1E" />}
     </div>
   );
 }
 
-// ─── Argument row ─────────────────────────────────────────────────────────────
 function ArgumentRow({ argument }: { argument: ProcessArgument }) {
   const [hovered, setHovered] = useState(false);
   const deleteProcessArgument = useSolutionStore((s) => s.deleteProcessArgument);
-  const directionColor: Record<ArgumentDirection, string> = { In: "#0067DF", Out: "#22C55E", InOut: "#8B5CF6" };
+  const directionColor: Record<ArgumentDirection, string> = { In: T.primary, Out: "#22C55E", InOut: "#8B5CF6" };
+  const DirIcon = argument.direction === "In" ? ArrowRight : argument.direction === "Out" ? ArrowLeft : ArrowLeftRight;
 
   return (
-    <div
-      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 10px 0 28px", height: 28, background: hovered ? T.hoverBg : T.bg }}
-    >
-      <TypeIcon type={argument.type} />
-      <span style={{ flex: 1, fontFamily: T.font, fontSize: 13, color: T.foreground, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {argument.name}
-      </span>
-      <span style={{ fontFamily: T.font, fontSize: 11, color: directionColor[argument.direction], fontWeight: 600, flexShrink: 0 }}>
-        {argument.direction}
-      </span>
+    <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+      style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 10px 0 28px", height: 28, background: hovered ? T.hoverBg : T.bg }}>
+      <DirIcon width={12} height={12} color={directionColor[argument.direction]} style={{ flexShrink: 0 }} />
+      <span style={{ flex: 1, fontFamily: T.font, fontSize: 13, color: T.foreground, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{argument.name}</span>
+      <span style={{ fontFamily: T.font, fontSize: 11, color: directionColor[argument.direction], fontWeight: 600, flexShrink: 0 }}>{argument.direction}</span>
       <span style={{ fontFamily: T.font, fontSize: 11, color: T.deemphasized, flexShrink: 0 }}>{argument.type}</span>
       {hovered && <IconBtn icon={Trash2} onClick={(e) => { e.stopPropagation(); deleteProcessArgument(argument.id); }} title="Delete" color="#D52B1E" />}
     </div>
   );
 }
 
-// ─── Section ──────────────────────────────────────────────────────────────────
-function Section({ label, count, children, onAdd }: { label: string; count: number; children: React.ReactNode; onAdd: () => void }) {
-  const [expanded, setExpanded] = useState(true);
-  const [hovered, setHovered]   = useState(false);
-
-  return (
-    <div style={{ borderBottom: `1px solid ${T.border}` }}>
-      <div
-        onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-        style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 10px", height: 30, background: T.sectionBg, cursor: "pointer" }}
-      >
-        <button onClick={() => setExpanded((v) => !v)} style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-          <ChevronRight style={{ width: 12, height: 12, color: T.muted, transition: "transform 0.15s", transform: expanded ? "rotate(90deg)" : "rotate(0deg)", flexShrink: 0 }} />
-          <VarGroupIcon />
-          <span style={{ fontFamily: T.font, fontSize: 12, fontWeight: 600, color: T.foreground }}>{label}</span>
-          <span style={{ fontFamily: T.font, fontSize: 11, color: T.deemphasized }}>{count > 0 ? `(${count})` : ""}</span>
-        </button>
-        {hovered && (
-          <button onClick={(e) => { e.stopPropagation(); onAdd(); }} title={`Add ${label.toLowerCase().replace(/s$/, "")}`}
-            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, border: "none", background: "none", cursor: "pointer", borderRadius: 3, color: T.muted, flexShrink: 0 }}>
-            <Plus width={11} height={11} />
-          </button>
-        )}
-      </div>
-      {expanded && children}
-    </div>
-  );
-}
-
-// ─── Main panel ───────────────────────────────────────────────────────────────
-export function DataManagerPanel() {
-  const processVariables  = useSolutionStore((s) => s.processVariables);
-  const processArguments  = useSolutionStore((s) => s.processArguments);
-  const entityVariables   = useSolutionStore((s) => s.entityVariables);
-  const addProcessVariable  = useSolutionStore((s) => s.addProcessVariable);
-  const addProcessArgument  = useSolutionStore((s) => s.addProcessArgument);
-  const addEntityVariable   = useSolutionStore((s) => s.addEntityVariable);
+// Process canvas Data Manager
+function ProcessDataManagerPanel() {
+  const processVariables = useSolutionStore((s) => s.processVariables);
+  const processArguments = useSolutionStore((s) => s.processArguments);
+  const entityVariables  = useSolutionStore((s) => s.entityVariables);
+  const addProcessVariable = useSolutionStore((s) => s.addProcessVariable);
+  const addProcessArgument = useSolutionStore((s) => s.addProcessArgument);
+  const addEntityVariable  = useSolutionStore((s) => s.addEntityVariable);
 
   const [addingVariable, setAddingVariable] = useState(false);
   const [addingArgument, setAddingArgument] = useState(false);
@@ -564,12 +716,10 @@ export function DataManagerPanel() {
   const filteredVars = q ? processVariables.filter((v) => v.name.toLowerCase().includes(q)) : processVariables;
   const filteredArgs = q ? processArguments.filter((a) => a.name.toLowerCase().includes(q)) : processArguments;
   const filteredEvs  = q ? entityVariables.filter((ev) => ev.name.toLowerCase().includes(q)) : entityVariables;
-
   const totalVarCount = filteredVars.length + filteredEvs.length;
 
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column", background: T.bg, borderRight: `1px solid ${T.border}`, overflow: "hidden" }}>
-      {/* Header */}
+    <>
       <div style={{ height: 36, display: "flex", alignItems: "center", gap: 8, padding: "0 12px", borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
         <span style={{ flex: 1, fontFamily: T.font, fontSize: 13, fontWeight: 600, color: T.foreground }}>Data manager</span>
         <button title="Add variable" onClick={() => { setAddingVariable(true); setAddingArgument(false); }}
@@ -582,19 +732,17 @@ export function DataManagerPanel() {
         </button>
       </div>
 
-      {/* Search bar */}
       {showSearch && (
         <div style={{ padding: "6px 10px", borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#F4F5F7", border: `1px solid ${T.border}`, borderRadius: 4, padding: "0 8px", height: 26 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, background: T.sectionBg, border: `1px solid ${T.border}`, borderRadius: 4, padding: "0 8px", height: 26 }}>
             <Search width={12} height={12} color={T.muted} />
             <input autoFocus placeholder="Search variables…" value={search} onChange={(e) => setSearch(e.target.value)}
               style={{ flex: 1, border: "none", background: "none", fontFamily: T.font, fontSize: 12, color: T.foreground, outline: "none" }} />
-            {search && <button onClick={() => setSearch("")} style={{ border: "none", background: "none", cursor: "pointer", padding: 0, color: T.muted, display: "flex", alignItems: "center" }}><X width={11} height={11} /></button>}
+            {search && <button onClick={() => setSearch("")} style={{ border: "none", background: "none", cursor: "pointer", padding: 0, color: T.muted, display: "flex" }}><X width={11} height={11} /></button>}
           </div>
         </div>
       )}
 
-      {/* Global add variable/entity form */}
       {addingVariable && (
         <AddVariableForm
           onSaveScalar={(v) => { addProcessVariable(v); setAddingVariable(false); }}
@@ -603,18 +751,13 @@ export function DataManagerPanel() {
         />
       )}
 
-      {/* Scrollable sections */}
       <div style={{ flex: 1, overflowY: "auto" }}>
-        {/* Variables — includes scalar + entity variable rows */}
         <Section label="Variables" count={totalVarCount} onAdd={() => { setAddingVariable(true); setAddingArgument(false); }}>
           {filteredVars.map((v) => <VariableRow key={v.id} variable={v} />)}
           {filteredEvs.map((ev) => <EntityVariableRow key={ev.id} ev={ev} />)}
-          {totalVarCount === 0 && !addingVariable && (
-            <div style={{ padding: "8px 28px", fontFamily: T.font, fontSize: 12, color: T.deemphasized }}>No variables defined</div>
-          )}
+          {totalVarCount === 0 && !addingVariable && <div style={{ padding: "8px 28px", fontFamily: T.font, fontSize: 12, color: T.deemphasized }}>No variables defined</div>}
         </Section>
 
-        {/* Arguments */}
         <Section label="Arguments" count={filteredArgs.length} onAdd={() => { setAddingArgument(true); setAddingVariable(false); }}>
           {addingArgument && (
             <AddArgumentForm
@@ -623,11 +766,20 @@ export function DataManagerPanel() {
             />
           )}
           {filteredArgs.map((a) => <ArgumentRow key={a.id} argument={a} />)}
-          {filteredArgs.length === 0 && !addingArgument && (
-            <div style={{ padding: "8px 28px", fontFamily: T.font, fontSize: 12, color: T.deemphasized }}>No arguments defined</div>
-          )}
+          {filteredArgs.length === 0 && !addingArgument && <div style={{ padding: "8px 28px", fontFamily: T.font, fontSize: 12, color: T.deemphasized }}>No arguments defined</div>}
         </Section>
       </div>
+    </>
+  );
+}
+
+// ─── Root panel — branches on canvasMode ──────────────────────────────────────
+export function DataManagerPanel() {
+  const canvasMode = useSolutionStore((s) => s.canvasMode);
+
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", background: T.bg, borderRight: `1px solid ${T.border}`, overflow: "hidden" }}>
+      {canvasMode === "agent" ? <AgentDataManagerPanel /> : <ProcessDataManagerPanel />}
     </div>
   );
 }

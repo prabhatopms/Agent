@@ -45,6 +45,7 @@ export interface SchemaField {
   type: string;
   description: string;
   required: boolean;
+  defaultValue?: string;
 }
 
 export interface AgentSchema {
@@ -290,6 +291,11 @@ export interface SolutionState {
   // Process canvas graph (ReactFlow state)
   updateProcessCanvasNodes: (nodes: Node[]) => void;
   updateProcessCanvasEdges: (edges: Edge[]) => void;
+
+  // Agent schema field management (used by agent-canvas Data Manager view)
+  addAgentSchemaField: (agentId: string, direction: "input" | "output", field: Omit<SchemaField, never>) => void;
+  deleteAgentSchemaField: (agentId: string, direction: "input" | "output", fieldName: string) => void;
+  updateAgentSchemaField: (agentId: string, direction: "input" | "output", fieldName: string, patch: Partial<SchemaField>) => void;
 
   // Data Manager actions
   addProcessVariable: (v: Omit<ProcessVariable, "id">) => void;
@@ -671,6 +677,30 @@ export const useSolutionStore = create<SolutionState>()(
 
     setRightPanelView: (view) => {
       set((s) => { s.rightPanelView = view; });
+    },
+
+    addAgentSchemaField: (agentId, direction, field) => {
+      set((s) => {
+        const agent = s.solution.agents.find((a) => a.id === agentId);
+        if (agent) agent.schema[direction].push(field);
+      });
+    },
+
+    deleteAgentSchemaField: (agentId, direction, fieldName) => {
+      set((s) => {
+        const agent = s.solution.agents.find((a) => a.id === agentId);
+        if (agent) agent.schema[direction] = agent.schema[direction].filter((f) => f.name !== fieldName);
+      });
+    },
+
+    updateAgentSchemaField: (agentId, direction, fieldName, patch) => {
+      set((s) => {
+        const agent = s.solution.agents.find((a) => a.id === agentId);
+        if (agent) {
+          const field = agent.schema[direction].find((f) => f.name === fieldName);
+          if (field) Object.assign(field, patch);
+        }
+      });
     },
 
     selectProcessNode: (nodeId, nodeType) => {
