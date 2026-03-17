@@ -212,6 +212,11 @@ export interface SolutionState {
   // Right panel view — "properties" shows node inspector, "output" shows run logs
   rightPanelView: "properties" | "output";
 
+  // Which agent's Definition file is currently open (drives Data Manager content in agent mode)
+  // Set by tab navigation, explorer click, or double-clicking an AgentAction node.
+  // Distinct from selectedAgentId (which node is selected on canvas).
+  openAgentId: string | null;
+
   // Process (BPMN) canvas node/edge state — kept in store so inspector can read/write
   processCanvasNodes: Node[];
   processCanvasEdges: Edge[];
@@ -275,6 +280,9 @@ export interface SolutionState {
 
   // Canvas mode
   setCanvasMode: (mode: "agent" | "process") => void;
+
+  // Open agent file (used by Data Manager, independent of canvas node selection)
+  setOpenAgentId: (id: string | null) => void;
 
   // Left panel
   setLeftPanelView: (view: "explorer" | "datamanager") => void;
@@ -349,6 +357,7 @@ export const useSolutionStore = create<SolutionState>()(
     traceHistory: [],
     historyBadgeCount: 0,
     canvasMode: "agent",
+    openAgentId: "agent-1", // app starts with agent-1's Definition open
     leftPanelView: "explorer",
     rightPanelView: "properties",
     processCanvasNodes: MOCK_PROCESS_NODES,
@@ -669,6 +678,10 @@ export const useSolutionStore = create<SolutionState>()(
 
     setCanvasMode: (mode) => {
       set((s) => { s.canvasMode = mode; });
+    },
+
+    setOpenAgentId: (id) => {
+      set((s) => { s.openAgentId = id; });
     },
 
     setLeftPanelView: (view) => {

@@ -10,23 +10,26 @@ const TABS = [
     label: "Invoice Processing.bpmn",
     icon: FileCode2,
     explorerNodeId: "sol-bpmn-1",
+    agentId: null,
   },
   {
     id: "definition",
     label: "Definition",
     icon: CircleDot,
     explorerNodeId: "sol-agent-def",
+    agentId: "agent-1", // which agent's Definition file this tab represents
   },
 ] as const;
 
 export function CanvasHeader() {
   const [active, setActive] = useState<string>("definition");
-  const { setSelectedExplorerNode, setCanvasMode } = useSolutionStore();
+  const { setSelectedExplorerNode, setCanvasMode, setOpenAgentId } = useSolutionStore();
 
-  const handleTabClick = (id: string, explorerNodeId: string) => {
+  const handleTabClick = (id: string, explorerNodeId: string, agentId: string | null) => {
     setActive(id);
     setSelectedExplorerNode(explorerNodeId);
     setCanvasMode(id === "bpmn" ? "process" : "agent");
+    setOpenAgentId(agentId); // null when switching to process, agentId when switching to agent
   };
 
   return (
@@ -40,12 +43,12 @@ export function CanvasHeader() {
         flexShrink: 0,
       }}
     >
-      {TABS.map(({ id, label, icon: Icon, explorerNodeId }) => {
+      {TABS.map(({ id, label, icon: Icon, explorerNodeId, agentId }) => {
         const isActive = active === id;
         return (
           <button
             key={id}
-            onClick={() => handleTabClick(id, explorerNodeId)}
+            onClick={() => handleTabClick(id, explorerNodeId, agentId)}
             style={{
               display: "flex",
               alignItems: "center",

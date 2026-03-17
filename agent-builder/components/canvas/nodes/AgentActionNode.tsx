@@ -41,12 +41,15 @@ export function AgentActionNode({ data, selected }: NodeProps) {
   const setCanvasMode = useSolutionStore((s) => s.setCanvasMode);
   const setSelectedExplorerNode = useSolutionStore((s) => s.setSelectedExplorerNode);
   const selectCanvasNode = useSolutionStore((s) => s.selectCanvasNode);
+  const setOpenAgentId = useSolutionStore((s) => s.setOpenAgentId);
 
   const handleDoubleClick = () => {
     // Navigate to the agent's Definition canvas
+    const agentId = data.agentId ?? "agent-1";
     setCanvasMode("agent");
     setSelectedExplorerNode("sol-agent-def");
     selectCanvasNode("node-agent-1");
+    setOpenAgentId(agentId);
   };
 
   return (

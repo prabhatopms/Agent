@@ -93,6 +93,7 @@ export function TreeItem({ nodeId, allNodes, depth }: TreeItemProps) {
     selectCanvasNode,
     setCanvasMode,
     setSelectedExplorerNode,
+    setOpenAgentId,
   } = useSolutionStore();
 
   const node = allNodes.find((n) => n.id === nodeId);
@@ -120,6 +121,7 @@ export function TreeItem({ nodeId, allNodes, depth }: TreeItemProps) {
       setCanvasMode("agent");
       setSelectedExplorerNode(nodeId);
       selectCanvasNode("node-agent-1");
+      setOpenAgentId(node.agentId ?? null);
       return;
     }
     // If node has an agentId, select the agent regardless of folder/item type

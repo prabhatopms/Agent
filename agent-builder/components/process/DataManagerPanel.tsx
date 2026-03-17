@@ -343,8 +343,8 @@ function SchemaFieldRow({
 
 // Agent canvas Data Manager
 function AgentDataManagerPanel() {
-  const selectedAgentId = useSolutionStore((s) => s.selectedAgentId);
-  const agent = useSolutionStore((s) => s.solution.agents.find((a) => a.id === s.selectedAgentId) ?? null);
+  const openAgentId = useSolutionStore((s) => s.openAgentId);
+  const agent = useSolutionStore((s) => s.solution.agents.find((a) => a.id === s.openAgentId) ?? null);
   const addAgentSchemaField = useSolutionStore((s) => s.addAgentSchemaField);
 
   const [addingInput, setAddingInput]   = useState(false);
@@ -352,10 +352,10 @@ function AgentDataManagerPanel() {
   const [search, setSearch]             = useState("");
   const [showSearch, setShowSearch]     = useState(false);
 
-  if (!agent || !selectedAgentId) {
+  if (!agent || !openAgentId) {
     return (
       <div style={{ padding: 16, fontFamily: T.font, fontSize: 12, color: T.deemphasized }}>
-        Select an agent node to view its data.
+        No agent file open.
       </div>
     );
   }
@@ -401,12 +401,12 @@ function AgentDataManagerPanel() {
           {addingInput && (
             <SchemaFieldForm
               direction="input"
-              onSave={(field) => { addAgentSchemaField(selectedAgentId, "input", field); setAddingInput(false); }}
+              onSave={(field) => { addAgentSchemaField(openAgentId, "input", field); setAddingInput(false); }}
               onCancel={() => setAddingInput(false)}
             />
           )}
           {filteredInputs.map((f) => (
-            <SchemaFieldRow key={f.name} field={f} direction="input" agentId={selectedAgentId} />
+            <SchemaFieldRow key={f.name} field={f} direction="input" agentId={openAgentId} />
           ))}
           {filteredInputs.length === 0 && !addingInput && (
             <div style={{ padding: "8px 28px", fontFamily: T.font, fontSize: 12, color: T.deemphasized }}>No inputs defined</div>
@@ -418,12 +418,12 @@ function AgentDataManagerPanel() {
           {addingOutput && (
             <SchemaFieldForm
               direction="output"
-              onSave={(field) => { addAgentSchemaField(selectedAgentId, "output", field); setAddingOutput(false); }}
+              onSave={(field) => { addAgentSchemaField(openAgentId, "output", field); setAddingOutput(false); }}
               onCancel={() => setAddingOutput(false)}
             />
           )}
           {filteredOutputs.map((f) => (
-            <SchemaFieldRow key={f.name} field={f} direction="output" agentId={selectedAgentId} />
+            <SchemaFieldRow key={f.name} field={f} direction="output" agentId={openAgentId} />
           ))}
           {filteredOutputs.length === 0 && !addingOutput && (
             <div style={{ padding: "8px 28px", fontFamily: T.font, fontSize: 12, color: T.deemphasized }}>No outputs defined</div>
